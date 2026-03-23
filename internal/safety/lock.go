@@ -15,8 +15,8 @@ import (
 // If it exists, we assume another process is running and exit with an error.
 const LockFile = ".gitresolve.lock"
 
-// acquireLock creates the lock file. If it already exists, it returns an error.
-func acquireLock(repoPath string) error {
+// AcquireLock creates the lock file. If it already exists, it returns an error.
+func AcquireLock(repoPath string) error {
 	lockPath := repoPath + "/" + LockFile
 	// os.O_CREATE|os.O_EXCL : create this file but fail if already exists
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -32,8 +32,8 @@ func acquireLock(repoPath string) error {
 	return nil
 }
 
-// releaseLock : deletes the lock file when done.
-func releaseLock(repoPath string) error {
+// ReleaseLock deletes the lock file when done.
+func ReleaseLock(repoPath string) error {
 	lockPath := repoPath + "/" + LockFile
 	err := os.Remove(lockPath)
 	if err != nil {
