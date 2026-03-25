@@ -1,12 +1,11 @@
 package safety
 
-// Before touching any conflicted file, save a backup. This is what make undo possible later.
 import (
 	"fmt"
 	"os"
 )
 
-func preserveOriginal(filepath string) error {
+func PreserveOriginal(filepath string) error {
 	content, err := os.ReadFile(filepath)
 	if err != nil {
 		return fmt.Errorf("PreserveOriginal : reading file %w", err)
@@ -20,7 +19,7 @@ func preserveOriginal(filepath string) error {
 }
 
 // restore original.
-func restoreOriginal(filePath string) error {
+func RestoreOriginal(filePath string) error {
 	backupPath := filePath + ".gitresolve-orig"
 	conent, err := os.ReadFile(backupPath)
 	if err != nil {
