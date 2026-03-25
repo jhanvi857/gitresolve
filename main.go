@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "github.com/jhanvi857/gitresolve/cmd/gitresolve"
 
 func main() {
-	fmt.Println("Hello world !!")
+	gitresolve.Execute()
 }
