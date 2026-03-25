@@ -187,7 +187,7 @@ func parseTree(content []byte) ([]TreeEntry, error) {
 }
 
 // GetCommit fetches and parses a commit object by its SHA
-// every other package in gitstitch calls this to read commit history
+// every other package in gitresolve calls this to read commit history
 func GetCommit(r *Repository, sha string) (Commit, error) {
 	objType, content, err := readObject(r.Path, sha)
 	if err != nil {
