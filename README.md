@@ -40,13 +40,13 @@ This is the concrete runtime flow in the current implementation:
 flowchart TD
     A[Open repo and create .gitresolve.lock] --> B[List conflicted files from worktree status]
     B --> C{For each conflicted file}
-    C --> D[Backup original to .gitresolve-orig\n(skip when --dry-run)]
-    D --> E[Parse conflict markers\n<<<<<<< ======= >>>>>>>]
+    C --> D[Backup original to .gitresolve-orig<br/>skip when dry-run]
+    D --> E[Parse conflict marker blocks]
     E --> F[Classify conflict blocks]
     F --> G{Auto-resolvable?}
     G -- Yes --> H[Compile resolved content]
-    H --> I[Verify output\n(no markers + JSON/YAML checks)]
-    I --> J[Atomic write\n(temp + fsync + rename)]
+    H --> I[Verify output<br/>no markers and JSON-YAML checks]
+    I --> J[Atomic write<br/>temp + fsync + rename]
     J --> K{All blocks in file resolved?}
     K -- Yes --> L[Stage file with git add]
     K -- No --> M[Leave remaining blocks for manual resolution]
