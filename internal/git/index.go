@@ -2,6 +2,8 @@ package git
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
@@ -11,23 +13,18 @@ import (
 // this file finds those files, checks individual ones, and marks them resolved
 
 func ConflictedFiles(r *Repository) ([]string, error) {
-	worktree, err := r.repo.Worktree()
+	out, err := exec.Command("git", "diff", "--name-only", "--diff-filter=U").Output()
 	if err != nil {
-		return nil, fmt.Errorf("ConflictedFiles: getting worktree: %w", err)
+		return nil, fmt.Errorf("ConflictedFiles: calling git diff: %w", err)
 	}
 
-	// status gives us state of every file git knows about
-	status, err := worktree.Status()
-	if err != nil {
-		return nil, fmt.Errorf("ConflictedFiles: reading status: %w", err)
-	}
-
+	lines := strings.Split(string(out), "\n")
 	var conflicted []string
 
-	for filePath, fileStatus := range status {
-		// go-git marks conflicted paths as UpdatedButUnmerged on either side.
-		if isStatusConflicted(fileStatus) {
-			conflicted = append(conflicted, filePath)
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l != "" {
+			conflicted = append(conflicted, l)
 		}
 	}
 
@@ -39,22 +36,21 @@ func ConflictedFiles(r *Repository) ([]string, error) {
 }
 
 func IsConflicted(r *Repository, filePath string) (bool, error) {
-	worktree, err := r.repo.Worktree()
+	conflicted, err := ConflictedFiles(r)
 	if err != nil {
-		return false, fmt.Errorf("IsConflicted: %w", err)
+		if strings.Contains(err.Error(), "no conflicts") {
+			return false, nil
+		}
+		return false, err
 	}
-
-	status, err := worktree.Status()
-	if err != nil {
-		return false, fmt.Errorf("IsConflicted: %w", err)
+	
+	for _, f := range conflicted {
+		if strings.TrimSpace(f) == strings.TrimSpace(filePath) {
+			return true, nil
+		}
 	}
-
-	// get status of this specific file
-	fileStatus := status.File(filePath)
-
-	isConflicted := isStatusConflicted(fileStatus)
-
-	return isConflicted, nil
+	
+	return false, nil
 }
 
 func isStatusConflicted(fileStatus *gogit.FileStatus) bool {
