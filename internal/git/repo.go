@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
 )
@@ -66,4 +67,21 @@ func (r *Repository) HeadCommit() (string, error) {
 	}
 
 	return ref.Hash().String(), nil
+}
+
+func (r *Repository) ResetHardTo(commitSHA string) error {
+	worktree, err := r.repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("ResetHardTo: getting worktree: %w", err)
+	}
+
+	err = worktree.Reset(&gogit.ResetOptions{
+		Mode:   gogit.HardReset,
+		Commit: plumbing.NewHash(commitSHA),
+	})
+	if err != nil {
+		return fmt.Errorf("ResetHardTo: %w", err)
+	}
+
+	return nil
 }
