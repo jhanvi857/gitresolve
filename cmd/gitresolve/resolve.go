@@ -145,8 +145,10 @@ func parseStrategy(v string) (conflict.Strategy, error) {
 		return conflict.StrategyTheirs, nil
 	case "both":
 		return conflict.StrategyBoth, nil
+	case "interactive":
+		return conflict.StrategyInteractive, nil
 	default:
-		return 0, fmt.Errorf("unknown strategy '%s' (use ours|theirs|both)", v)
+		return 0, fmt.Errorf("unknown strategy '%s' (use interactive|ours|theirs|both)", v)
 	}
 }
 
@@ -163,6 +165,6 @@ func storeConflict(repoPath, file string, c *conflict.Conflict, strategy string)
 func init() {
 	rootCmd.AddCommand(resolveCmd)
 	resolveCmd.Flags().StringVar(&resolveFileName, "file", "", "resolve a specific file")
-	resolveCmd.Flags().StringVar(&resolveStrategy, "strategy", "ours", "resolve strategy: ours|theirs|both")
+	resolveCmd.Flags().StringVar(&resolveStrategy, "strategy", "interactive", "resolve strategy: interactive|ours|theirs|both")
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dry-run", false, "show what would happen without writing")
 }
