@@ -2,7 +2,10 @@ package conflict
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
+
+	"github.com/jhanvi857/gitresolve/internal/analysis"
 )
 
 func Classify(c *Conflict) {
@@ -39,7 +42,7 @@ func Classify(c *Conflict) {
 	if isStructuredFile(c.FilePath) {
 		c.Type = TypeStructured
 		c.Severity = SeverityLow
-		c.CanAutoResolve = false
+		c.CanAutoResolve = true
 		return
 	}
 
@@ -55,7 +58,7 @@ func Classify(c *Conflict) {
 
 	// rule 6: function signature change
 	// check if lines contain function definition keywords
-	if isSignatureChange(c.OurLines, c.TheirLines) {
+	if isSignatureChange(c.FilePath, c.OurLines, c.TheirLines) {
 		c.Type = TypeSignature
 		c.Severity = SeverityHigh
 		c.CanAutoResolve = false
@@ -127,14 +130,16 @@ func isImportConflict(ours, theirs []string) bool {
 }
 
 func isImportLine(line string) bool {
-	// Go:         import "fmt"  or  "github.com/..."
-	// JavaScript: import React from 'react'
-	// Python:     import os  or  from os import path
-	// Java:       import java.util.List;
-	return strings.HasPrefix(line, "import ") ||
-		strings.HasPrefix(line, "from ") ||
-		strings.HasPrefix(line, "\"") ||
-		strings.HasPrefix(line, "'")
+	// Refined heuristics with Regex to avoid false positives on normal strings
+	goImport := regexp.MustCompile(`^(import\s*(?:\(\s*)?|"[a-zA-Z0-9_\-\./]+"|\s+"[a-zA-Z0-9_\-\./]+")`)
+	jsImport := regexp.MustCompile(`^(import\s+.*from\s+['"].*['"]|require\(['"].*['"]\))`)
+	pyImport := regexp.MustCompile(`^(import\s+[a-zA-Z0-9_\.]+|from\s+[a-zA-Z0-9_\.]+\s+import)`)
+	javaImport := regexp.MustCompile(`^import\s+[a-zA-Z0-9_\.]+;*`)
+
+	return goImport.MatchString(line) ||
+		jsImport.MatchString(line) ||
+		pyImport.MatchString(line) ||
+		javaImport.MatchString(line)
 }
 
 func isStructuredFile(filePath string) bool {
@@ -150,13 +155,39 @@ func isDeleteModify(ours, theirs []string) bool {
 	return ourEmpty != theirEmpty
 }
 
-func isSignatureChange(ours, theirs []string) bool {
-	// check if any line looks like a function signature
-	// if both sides changed lines that contain function definitions
-	// that is a signature conflict
+func isSignatureChange(filePath string, ours, theirs []string) bool {
+	// Fallback fast heuristic
 	ourHasFunc := containsFuncDef(ours)
 	theirHasFunc := containsFuncDef(theirs)
-	return ourHasFunc && theirHasFunc
+
+	if ourHasFunc && theirHasFunc {
+		// Verify using AST if it really contains function declarations
+		ourAST, err1 := analysis.ParseFile(filePath, []byte(strings.Join(ours, "\n")))
+		theirAST, err2 := analysis.ParseFile(filePath, []byte(strings.Join(theirs, "\n")))
+
+		if err1 == nil && err2 == nil && ourAST != nil && theirAST != nil {
+			ourNodes := analysis.FindChangedNodes(ourAST, 0, len(ours)+1)
+			theirNodes := analysis.FindChangedNodes(theirAST, 0, len(theirs)+1)
+
+			hasFuncChange := func(nodes []*analysis.Node) bool {
+				for _, n := range nodes {
+					if n.Type == "function_declaration" || n.Type == "method_declaration" || n.Type == "arrow_function" || n.Type == "lexical_declaration" || n.Type == "ERROR" {
+						return true
+					}
+				}
+				return false
+			}
+
+			if hasFuncChange(ourNodes) && hasFuncChange(theirNodes) {
+				return true
+			}
+		}
+		
+		// If AST fails or nodes not parsed perfectly cleanly (due to incomplete snippet), return true since heuristic passed
+		return true
+	}
+	
+	return false
 }
 
 func containsFuncDef(lines []string) bool {
