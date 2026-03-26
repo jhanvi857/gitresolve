@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -77,6 +78,35 @@ func MergeYAML(base, ours, theirs []byte) (StructuredMergeResult, error) {
 		HasConflicts: len(conflicts) > 0,
 	}, nil
 }
+
+func MergeTOML(base, ours, theirs []byte) (StructuredMergeResult, error) {
+	var baseMap map[string]interface{}
+	var oursMap map[string]interface{}
+	var theirsMap map[string]interface{}
+
+	if err := toml.Unmarshal(base, &baseMap); err != nil {
+		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: parsing base: %w", err)
+	}
+	if err := toml.Unmarshal(ours, &oursMap); err != nil {
+		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: parsing ours: %w", err)
+	}
+	if err := toml.Unmarshal(theirs, &theirsMap); err != nil {
+		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: parsing theirs: %w", err)
+	}
+
+	merged, conflicts := mergeMap(baseMap, oursMap, theirsMap)
+	output, err := toml.Marshal(merged)
+	if err != nil {
+		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: marshaling result: %w", err)
+	}
+
+	return StructuredMergeResult{
+		Content:      string(output),
+		Conflicts:    conflicts,
+		HasConflicts: len(conflicts) > 0,
+	}, nil
+}
+
 func mergeMap(base, ours, theirs map[string]interface{}) (map[string]interface{}, []StructuredConflict) {
 	result := make(map[string]interface{})
 	var conflicts []StructuredConflict
