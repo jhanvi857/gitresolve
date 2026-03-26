@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-geist-background: #000000;
+  --color-geist-foreground: #ededed;
+  --color-geist-accents-1: #111111;
+  --color-geist-accents-2: #333333;
+  --color-geist-accents-3: #888888;
+  --color-geist-success: #0070f3;
+}
+
+body {
+  background-color: var(--color-geist-background);
+  color: var(--color-geist-foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background-color: #333333;
+  color: white;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-geist-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-geist-accents-2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-geist-accents-3);
+}
