@@ -1,7 +1,10 @@
 package conflict
 
 import (
+	"path/filepath"
 	"strings"
+
+	"github.com/jhanvi857/gitresolve/internal/analysis"
 )
 
 func AutoResolve(c *Conflict) bool {
@@ -22,6 +25,28 @@ func AutoResolve(c *Conflict) bool {
 	case TypeIdentical:
 		c.Resolution = strings.Join(c.OurLines, "\n")
 		return true
+
+	case TypeStructured:
+		ext := filepath.Ext(c.FilePath)
+		baseBytes := []byte(strings.Join(c.BaseLines, "\n"))
+		ourBytes := []byte(strings.Join(c.OurLines, "\n"))
+		theirBytes := []byte(strings.Join(c.TheirLines, "\n"))
+
+		var res analysis.StructuredMergeResult
+		var err error
+
+		if ext == ".json" {
+			res, err = analysis.MergeJSON(baseBytes, ourBytes, theirBytes)
+		} else if ext == ".yaml" || ext == ".yml" {
+			res, err = analysis.MergeYAML(baseBytes, ourBytes, theirBytes)
+		} else if ext == ".toml" {
+			res, err = analysis.MergeTOML(baseBytes, ourBytes, theirBytes)
+		}
+
+		if err == nil && !res.HasConflicts {
+			c.Resolution = res.Content
+			return true
+		}
 	}
 
 	return false
