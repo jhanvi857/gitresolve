@@ -1,43 +1,53 @@
 # gitresolve
 
-gitresolve is a local Go CLI for handling Git merge conflicts with deterministic, rule-based logic and intelligent AST analysis.
+[![Go Report Card](https://goreportcard.com/badge/github.com/jhanvi857/gitresolve)](https://goreportcard.com/report/github.com/jhanvi857/gitresolve)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-## What It Does
+> A locally executed, deterministic Git merge conflict solver built on Abstract Syntax Trees and structured serialization.
 
-*   Runs locally with no network or API calls.
-*   Detects conflicted files from Git status using native diff processes.
-*   Locks the repository root with `.gitresolve.lock` while running.
-*   Safely unwraps inline conflict markers.
-*   Classifies each conflict block contextually using Abstract Syntax Trees and structured heuristics.
-*   Auto-resolves strictly safe categories (like structured data, imports, and whitespace).
-*   Delegates complex logic to a built-in interactive terminal prompter.
-*   Verifies resulting content (syntax checks and JSON/YAML/TOML validity).
-*   Writes updates atomically and manages file staging automatically.
+Handling Git merge conflicts manually is error-prone, dangerous, and time-consuming. **gitresolve** intercepts your broken Git status, structurally evaluates the conflicted files, and safely resolves them without risking repository corruption.
 
-## Core Features
+## Why use gitresolve?
 
-### 1. Abstract Syntax Tree Intelligence
-gitresolve natively integrates go-tree-sitter to parse source files structurally rather than treating them as flat text. It accurately pinpoints function signature modifications and logical refactors in Go, JavaScript, and TypeScript. This prevents accidental syntax corruption during automated merges and accurately flags dangerous modifications.
+Standard Git performs blind text integrations. `gitresolve` actually parses your structures.
+
+| Capability | Standard Git Merge | gitresolve Engine |
+| :--- | :--- | :--- |
+| **JSON/YAML/TOML** | Fails on text collisions | Merges data maps dynamically |
+| **Logic Refactors** | Blindly overwrites text | Verifies AST signatures |
+| **Formatting** | Flags entire block | Auto-heals whitespace |
+| **Complex Deletions** | Overwrites or fails | Triggers Interactive Prompter |
+
+---
+
+## Core Engine Features
+
+### 1. Abstract Syntax Tree (AST) Intelligence
+Instead of analyzing raw text, `gitresolve` natively integrates `go-tree-sitter`. It compiles conflicting blocks into syntax trees to accurately pinpoint function signature modifications and logical refactors in **Go**, **JavaScript**, and **TypeScript**. If the syntax breaks, the merge is halted.
 
 ### 2. Structured Data Auto-Merger
-Conflicts occurring within configuration files (.json, .yaml, .yml, .toml) are completely auto-resolved. The engine cleanly unmarshals both divergent branches into data maps, performs a deep recursive merge, and safely reserializes the output to preserve exact syntactical validity without human intervention.
+Configuration conflicts are solved instantly. Whether it is `package.json` arrays or overlapping `.yaml` configurations, the engine unmarshals both divergent branches, performs a deep recursive map merge, and reserializes the output safely. 
 
-### 3. Interactive Prompter
-When encountering highly critical conflicts (such as sensitive authentication path alterations, code deletions, or complex logic modifications), the engine strictly pauses operations. It isolates the conflict, renders a clean side-by-side terminal comparison, and blocks for explicit human input. Developers simply press `O`, `T`, or `B` to choose immediate resolutions in terminal.
+### 3. Interactive Terminal Prompter
+Safety is paramount. When encountering highly critical conflicts (like sensitive authentication modifications, mass code deletions, or complex logic), the engine strictly pauses operations. It isolates the conflict into a clean side-by-side terminal comparison and blocks for explicit human input: `[O]urs`, `[T]heirs`, or `[B]oth`.
 
-## Workflow Overview
+---
+
+## Architectural Workflow
+
+The operational flow prioritizes safety, executing natively without external API dependencies.
 
 ```mermaid
 flowchart TD
     Start[User Triggers Resolve] --> LockRepo[Lock Repository]
-    LockRepo --> ReadGit[Identify Conflicting Files]
+    LockRepo --> ReadGit[Identify Conflicted Files]
     ReadGit --> LoopFiles{For Each File}
     
-    LoopFiles --> Parsed[Parse Conflict Blocks]
-    Parsed --> Classify[Classify Type and Severity]
+    LoopFiles --> Parsed[Parse Conflict Markers]
+    Parsed --> Classify[AST & Heuristic Classification]
     
-    Classify --> IsStructured{Is JSON/YAML/TOML?}
-    IsStructured -- Yes --> StructuralMerge[Deep Map Merge]
+    Classify --> IsStructured{Is Config File?}
+    IsStructured -- Yes --> StructuralMerge[Deep Map Serialization]
     StructuralMerge --> Output[Generate Clean File]
     
     IsStructured -- No --> IsSafeText{Is Safe Text Change?}
@@ -48,47 +58,41 @@ flowchart TD
     UserInput --> ReceiveInput[Receive Developer Decision]
     ReceiveInput --> Output
     
-    Output --> Verify[Verify Syntax and Format]
-    Verify --> Write[Atomic Write and Git Stage]
+    Output --> Verify[Verify Syntax Validity]
+    Verify --> Write[Atomic Write & Git Stage]
     Write --> NextFile{More Files?}
     
     NextFile -- Yes --> LoopFiles
     NextFile -- No --> Unlock[Unlock Repository]
-    Unlock --> Finish[Cleanup and Exit]
+    Unlock --> Finish[Cleanup & Exit]
 ```
 
-## Commands
+---
 
-*   `gitresolve resolve [--interactive]`
-    Resolves remaining conflict blocks. Safe structural blocks are handled automatically, while complex algorithms trigger the interactive prompter. By default, it runs interactively.
-*   `gitresolve merge [--dry-run]`
-    Auto-resolves safe conflict blocks in existing conflicted files silently.
-*   `gitresolve scan --target <branch>`
-    Predicts conflict blocks against another branch using standard git tools before they occur.
-*   `gitresolve status`
-    Inspects current conflicted files and prints per-block severity, type, and auto-resolve status.
-*   `gitresolve blame [--file <path>]`
-    Displays stored conflict-resolution history logged in the SQLite database.
-*   `gitresolve undo --steps N`
-    Resets the repository to a recorded snapshot SHA from recent sessions.
+## Command Reference
 
-## Conflict Classification Rules
+The CLI is designed to seamlessly sit on top of your standard Git workflow.
 
-*   TypeWhitespace: Auto-resolved (merges standard formatting differences).
-*   TypeIdentical: Auto-resolved (deduplicates exact same changes).
-*   TypeImport: Auto-resolved (deduplicates imports safely across languages).
-*   TypeStructured: Auto-resolved (JSON/YAML/TOML configurations deep-merged).
-*   TypeDeleteModify: Delegated to Interactive Prompt (high severity deletion protection).
-*   TypeSignature: Delegated to Interactive Prompt (requires AST-level verification).
-*   TypeLogic: Delegated to Interactive Prompt (core logic modifications or sensitive paths).
+| Command | Description |
+| :--- | :--- |
+| `gitresolve resolve` | **Default Command**. Resolves all remaining conflicts interactively or automatically based on AST safety checks. |
+| `gitresolve scan --target <branch>` | Predicts and previews conflict blocks against another branch **before** you trigger a merge. |
+| `gitresolve status` | Inspects current conflicted files and prints per-block severity, type, and auto-resolution status. |
+| `gitresolve merge [--dry-run]` | Strictly auto-resolves safe conflict blocks in existing conflicted files silently. |
+| `gitresolve blame [--file <path>]` | Displays stored conflict-resolution history logged in the local SQLite database. |
+| `gitresolve undo --steps N` | Resets the repository to a recorded snapshot SHA from recent GitResolve sessions. |
 
-## Installation
+---
+
+## Installation & Quick Start
+
+Install directly via Go:
 
 ```bash
 go install github.com/jhanvi857/gitresolve@latest
 ```
 
-Or build locally:
+Or build the binary locally from source:
 
 ```bash
 git clone https://github.com/jhanvi857/gitresolve
@@ -96,9 +100,15 @@ cd gitresolve
 go build -o bin/gitresolve .
 ```
 
-## Development Notes
+### Automatic Classification Ruleset
+To ensure continuous repository integrity, conflicts are mapped to the following deterministic rules:
 
-*   Lock file path: `.gitresolve.lock` at repo root.
-*   Backup convention: `<file>.gitresolve-orig`.
-*   Atomic write strategy: temp file in same directory concatenated with `Sync` and `Rename`.
-*   If no conflicted files are found, commands exit gracefully with an informative status message.
+* **TypeWhitespace:** Auto-resolved (merges standard formatting differences).
+* **TypeIdentical:** Auto-resolved (deduplicates exact parallel changes).
+* **TypeImport:** Auto-resolved (deduplicates imports safely across languages).
+* **TypeStructured:** Auto-resolved (JSON/YAML/TOML configurations deep-merged).
+* **TypeDeleteModify:** Delegated to Interactive Prompt (high severity deletion protection).
+* **TypeSignature:** Delegated to Prompt (AST-verified architecture changes).
+* **TypeLogic:** Delegated to Prompt (core logic modifications or sensitive paths).
+
+*(All state changes are locked atomically with `.gitresolve.lock` and backed up immediately as `<file>.gitresolve-orig`.)*
