@@ -22,31 +22,34 @@ var scanCmd = &cobra.Command{
 			return
 		}
 
-		baseSHA, err := runGit("merge-base", "HEAD", targetBranch)
-		if err != nil {
-			fmt.Println("Scan failed: unable to compute merge-base:", err)
-			return
-		}
-
-		mergeTreeOut, err := runGit("merge-tree", strings.TrimSpace(baseSHA), "HEAD", targetBranch)
+		// Use modern merge-tree which is more accurate and handles renames better
+		mergeTreeOut, err := runGit("merge-tree", "HEAD", targetBranch)
 		if err != nil {
 			fmt.Println("Scan failed: unable to run merge-tree:", err)
 			return
 		}
 
-		conflictCount := strings.Count(mergeTreeOut, "<<<<<<<")
-		if conflictCount == 0 {
+		// merge-tree output:
+		// <tree-hash>
+		// Conflict ...
+		// <other info>
+		lines := strings.Split(mergeTreeOut, "\n")
+		var conflicts []string
+		for _, line := range lines {
+			if strings.HasPrefix(line, "Conflict") || strings.Contains(line, "CONFLICT") {
+				conflicts = append(conflicts, line)
+			}
+		}
+
+		if len(conflicts) == 0 {
 			fmt.Println("No potential conflicts found.")
 			return
 		}
 
-		fmt.Printf("Potential conflicts detected: %d block(s).\n", conflictCount)
+		fmt.Printf("Potential conflicts detected: %d files/blocks.\n", len(conflicts))
 		fmt.Println("Conflict hints:")
-		for _, line := range strings.Split(mergeTreeOut, "\n") {
-			trim := strings.TrimSpace(line)
-			if strings.HasPrefix(trim, "changed in both") || strings.HasPrefix(trim, "Auto-merging") {
-				fmt.Println(" -", trim)
-			}
+		for _, c := range conflicts {
+			fmt.Println(" -", c)
 		}
 	},
 }

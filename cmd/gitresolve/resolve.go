@@ -34,6 +34,7 @@ var resolveCmd = &cobra.Command{
 			return
 		}
 		defer git.Close(r)
+		HandleSignals(r)
 
 		files, err := git.ConflictedFiles(r)
 		if err != nil {

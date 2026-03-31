@@ -26,10 +26,14 @@ Standard Git performs blind text integrations. `gitresolve` actually parses your
 Instead of analyzing raw text, `gitresolve` natively integrates `go-tree-sitter`. It compiles conflicting blocks into syntax trees to accurately pinpoint function signature modifications and logical refactors in **Go**, **JavaScript**, and **TypeScript**. If the syntax breaks, the merge is halted.
 
 ### 2. Structured Data Auto-Merger
-Configuration conflicts are solved instantly. Whether it is `package.json` arrays or overlapping `.yaml` configurations, the engine unmarshals both divergent branches, performs a deep recursive map merge, and reserializes the output safely. 
+Configuration conflicts are solved instantly. The engine performs a deep recursive map merge for **JSON**, **YAML**, and **TOML**. 
+- **Conservative Array Merging**: To avoid silent configuration corruption, overlapping array modifications (e.g., both branches adding different items to a server list) are marked as conflicts for human review.
+- **Critical File Protection**: Files like `package.json`, `go.mod`, and `cargo.toml` are treated as high-severity. Auto-resolution is disabled by default for these files to ensure dependency integrity.
 
 ### 3. Interactive Terminal Prompter
-Safety is paramount. When encountering highly critical conflicts (like sensitive authentication modifications, mass code deletions, or complex logic), the engine strictly pauses operations. It isolates the conflict into a clean side-by-side terminal comparison and blocks for explicit human input: `[O]urs`, `[T]heirs`, or `[B]oth`.
+Safety is paramount. When encountering highly critical conflicts (like sensitive authentication modifications, mass code deletions, or complex logic), the engine strictly pauses operations.
+- **AST Fallback**: If parsing fails, it immediately delegates to the Interactive Prompter.
+- **Lock Resilience**: Uses a multi-layered locking system with PID verification and signal handling (SIGINT/SIGTERM) to prevent stalled executions and allow recovery from crashes.
 
 ---
 
@@ -76,9 +80,9 @@ The CLI is designed to seamlessly sit on top of your standard Git workflow.
 | Command | Description |
 | :--- | :--- |
 | `gitresolve resolve` | **Default Command**. Resolves all remaining conflicts interactively or automatically based on AST safety checks. |
-| `gitresolve scan --target <branch>` | Predicts and previews conflict blocks against another branch **before** you trigger a merge. |
+| `gitresolve scan --target <branch>` | Non-destructively predicts conflicts against another branch using modern `git merge-tree`. |
 | `gitresolve status` | Inspects current conflicted files and prints per-block severity, type, and auto-resolution status. |
-| `gitresolve merge [--dry-run]` | Strictly auto-resolves safe conflict blocks in existing conflicted files silently. |
+| `gitresolve merge [--no-auto-structured]` | Auto-resolves safe blocks. Use `--no-auto-structured` to skip automated merging of JSON/YAML/TOML. |
 | `gitresolve blame [--file <path>]` | Displays stored conflict-resolution history logged in the local SQLite database. |
 | `gitresolve undo --steps N` | Resets the repository to a recorded snapshot SHA from recent GitResolve sessions. |
 
@@ -106,9 +110,20 @@ To ensure continuous repository integrity, conflicts are mapped to the following
 * **TypeWhitespace:** Auto-resolved (merges standard formatting differences).
 * **TypeIdentical:** Auto-resolved (deduplicates exact parallel changes).
 * **TypeImport:** Auto-resolved (deduplicates imports safely across languages).
-* **TypeStructured:** Auto-resolved (JSON/YAML/TOML configurations deep-merged).
+* **TypeStructured:** Auto-resolved for non-critical files if no array/scalar overlaps exist.
 * **TypeDeleteModify:** Delegated to Interactive Prompt (high severity deletion protection).
 * **TypeSignature:** Delegated to Prompt (AST-verified architecture changes).
 * **TypeLogic:** Delegated to Prompt (core logic modifications or sensitive paths).
 
 *(All state changes are locked atomically with `.gitresolve.lock` and backed up immediately as `<file>.gitresolve-orig`.)*
+
+---
+
+## Technical Reliability
+`gitresolve` is verified against a corpus of **18 real-world conflict scenarios** across multiple languages and formats, including:
+- **TypeScript (TSX)** components with logical shifts.
+- **Go** interface and function signature modifications.
+- **Nested YAML/JSON** configuration overlaps.
+- **Critical Dependency** files (`package.json`, `go.mod`, `Cargo.toml`).
+- **Sensitive Security Paths** (auth, crypto, migrations).
+- **TOML** deep map merges in Rust/Cargo projects.
