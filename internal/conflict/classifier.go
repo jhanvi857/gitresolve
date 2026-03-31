@@ -1,7 +1,6 @@
 package conflict
 
 import (
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -39,10 +38,15 @@ func Classify(c *Conflict) {
 
 	// rule 4: structured file conflict
 	// JSON/YAML/TOML : handled by structured.go not line diff
-	if isStructuredFile(c.FilePath) {
+	if analysis.IsStructuredFile(c.FilePath) {
 		c.Type = TypeStructured
-		c.Severity = SeverityLow
-		c.CanAutoResolve = true
+		if analysis.IsCriticalFile(c.FilePath) {
+			c.Severity = SeverityHigh
+			c.CanAutoResolve = false
+		} else {
+			c.Severity = SeverityLow
+			c.CanAutoResolve = true
+		}
 		return
 	}
 
@@ -70,6 +74,14 @@ func Classify(c *Conflict) {
 	if isSensitivePath(c.FilePath) {
 		c.Type = TypeLogic
 		c.Severity = SeverityCritical
+		c.CanAutoResolve = false
+		return
+	}
+
+	// rule 7: check for critical files (go.mod, etc. which might not be structured)
+	if analysis.IsCriticalFile(c.FilePath) {
+		c.Type = TypeLogic
+		c.Severity = SeverityHigh
 		c.CanAutoResolve = false
 		return
 	}
@@ -142,10 +154,6 @@ func isImportLine(line string) bool {
 		javaImport.MatchString(line)
 }
 
-func isStructuredFile(filePath string) bool {
-	ext := filepath.Ext(filePath)
-	return ext == ".json" || ext == ".yaml" || ext == ".yml" || ext == ".toml"
-}
 
 func isDeleteModify(ours, theirs []string) bool {
 	// one side has zero lines = deletion
@@ -202,6 +210,9 @@ func containsFuncDef(lines []string) bool {
 			strings.HasPrefix(trimmed, "def ") ||
 			strings.HasPrefix(trimmed, "public ") ||
 			strings.HasPrefix(trimmed, "private ") ||
+			strings.HasPrefix(trimmed, "type ") ||
+			strings.HasPrefix(trimmed, "interface ") ||
+			strings.HasPrefix(trimmed, "class ") ||
 			strings.Contains(trimmed, "=> {") {
 			return true
 		}

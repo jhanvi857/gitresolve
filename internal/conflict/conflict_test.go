@@ -28,7 +28,7 @@ func TestClassifierAndAutoResolve_Whitespace(t *testing.T) {
 		t.Error("expected CanAutoResolve to be true for whitespace")
 	}
 
-	resolved := AutoResolve(c)
+	resolved := AutoResolve(c, Options{})
 	if !resolved {
 		t.Error("AutoResolve failed to resolve whitespace conflict")
 	}
@@ -61,7 +61,7 @@ func TestClassifierAndAutoResolve_Imports(t *testing.T) {
 		t.Error("expected CanAutoResolve to be true for imports")
 	}
 
-	resolved := AutoResolve(c)
+	resolved := AutoResolve(c, Options{})
 	if !resolved {
 		t.Error("AutoResolve failed")
 	}

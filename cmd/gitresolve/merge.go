@@ -14,13 +14,14 @@ import (
 )
 
 var dryRun bool
+var noAutoStructured bool
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
 	Short: "Run smart merge on current conflicts",
 	Long:  `Analyzes and auto-resolves smart merge conflicts using deterministic rule-based algorithms. Escapes complex semantic or structural discrepancies to manual review securely.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Engine Bootup: Initializing gitresolve in directory '.' (DryRun: %v)\n", dryRun)
+		fmt.Printf("Engine Bootup: Initializing gitresolve in directory '.' (DryRun: %v, NoAutoStructured: %v)\n", dryRun, noAutoStructured)
 
 		repoPath := "."
 		r, err := git.Open(".")
@@ -29,6 +30,7 @@ var mergeCmd = &cobra.Command{
 			return
 		}
 		defer git.Close(r)
+		HandleSignals(r)
 
 		db, dbErr := openStore(repoPath)
 		if dbErr == nil {
@@ -74,7 +76,9 @@ var mergeCmd = &cobra.Command{
 			for _, c := range conflicts {
 				conflict.Classify(c)
 				if c.CanAutoResolve {
-					resolved := conflict.AutoResolve(c)
+					resolved := conflict.AutoResolve(c, conflict.Options{
+						NoAutoStructured: noAutoStructured,
+					})
 					if resolved {
 						autoResolvedCount++
 						if dbErr == nil {
@@ -136,4 +140,5 @@ var mergeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(mergeCmd)
 	mergeCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would happen without writing")
+	mergeCmd.Flags().BoolVar(&noAutoStructured, "no-auto-structured", false, "disable auto-resolution for structured files (JSON/YAML/TOML)")
 }

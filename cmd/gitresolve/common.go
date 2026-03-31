@@ -2,12 +2,29 @@ package gitresolve
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
+	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/store"
 )
+
+func HandleSignals(r *git.Repository) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		if r != nil {
+			fmt.Printf("\nInterrupted. Releasing lock on %s...\n", r.Path)
+			_ = git.Close(r)
+		}
+		os.Exit(1)
+	}()
+}
 
 func dbPathForRepo(repoPath string) string {
 	return filepath.Join(repoPath, ".git", "gitresolve.db")

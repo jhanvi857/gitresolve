@@ -7,26 +7,20 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/analysis"
 )
 
-func AutoResolve(c *Conflict) bool {
+type Options struct {
+	NoAutoStructured bool
+}
+
+func AutoResolve(c *Conflict, opts Options) bool {
 	if !c.CanAutoResolve {
 		return false
 	}
 
 	switch c.Type {
-	case TypeWhitespace:
-		c.Resolution = strings.Join(c.OurLines, "\n")
-		return true
-
-	case TypeImport:
-		merged := mergeImports(c.OurLines, c.TheirLines)
-		c.Resolution = strings.Join(merged, "\n")
-		return true
-
-	case TypeIdentical:
-		c.Resolution = strings.Join(c.OurLines, "\n")
-		return true
-
 	case TypeStructured:
+		if opts.NoAutoStructured {
+			return false
+		}
 		ext := filepath.Ext(c.FilePath)
 		baseBytes := []byte(strings.Join(c.BaseLines, "\n"))
 		ourBytes := []byte(strings.Join(c.OurLines, "\n"))
@@ -47,6 +41,19 @@ func AutoResolve(c *Conflict) bool {
 			c.Resolution = res.Content
 			return true
 		}
+
+	case TypeWhitespace:
+		c.Resolution = strings.Join(c.OurLines, "\n")
+		return true
+
+	case TypeImport:
+		merged := mergeImports(c.OurLines, c.TheirLines)
+		c.Resolution = strings.Join(merged, "\n")
+		return true
+
+	case TypeIdentical:
+		c.Resolution = strings.Join(c.OurLines, "\n")
+		return true
 	}
 
 	return false
