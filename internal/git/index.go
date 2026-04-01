@@ -19,12 +19,6 @@ func ConflictedFiles(r *Repository) ([]string, error) {
 	}
 
 	lines := strings.Split(string(out), "\n")
-	// Add our robust test files manually for the demo
-	lines = append(lines, "robust_tests/package.json")
-	lines = append(lines, "robust_tests/processor.go")
-	lines = append(lines, "robust_tests/infra.yaml")
-	lines = append(lines, "robust_tests/internal/auth/auth_provider.go")
-
 	var conflicted []string
 
 	for _, l := range lines {
