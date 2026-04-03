@@ -263,17 +263,11 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		return ours, nil
 	}
 
-	// If one is unchanged from base, return the other
-	if valuesEqual(ours, base) {
-		return theirs, nil
-	}
-	if valuesEqual(theirs, base) {
-		return ours, nil
-	}
-
-	// Make a copy of ours
-	merged := make([]interface{}, len(ours))
-	copy(merged, ours)
+	// Semantic merge: combine additions and deletions
+	// Elements in base but missing in ours = deleted by us
+	// Elements in base but missing in theirs = deleted by them
+	// Elements in ours but not in base = added by us
+	// Elements in theirs but not in base = added by them
 
 	contains := func(arr []interface{}, item interface{}) bool {
 		for _, a := range arr {
@@ -284,18 +278,39 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		return false
 	}
 
-	// Append additions seamlessly
-	for _, item := range theirs {
-		if !contains(base, item) && !contains(ours, item) {
-			merged = append(merged, item)
+	deletedByUs := make(map[int]bool)
+	deletedByThem := make(map[int]bool)
+	for i, b := range base {
+		if !contains(ours, b) {
+			deletedByUs[i] = true
+		}
+		if !contains(theirs, b) {
+			deletedByThem[i] = true
 		}
 	}
 
-	if len(ours) < len(base) || len(theirs) < len(base) {
-		return merged, []StructuredConflict{{Key: key, BaseValue: base, OurValue: ours, TheirValue: theirs}}
+	// If an element was deleted by one but modified/kept by other, we might have Conflict.
+	// But for simple lists, we'll just respect the deletion.
+	// Only if BOTH deleted or BOTH added the same things, it's easy.
+
+	var result []interface{}
+	for i, b := range base {
+		if !deletedByUs[i] && !deletedByThem[i] {
+			result = append(result, b)
+		}
+	}
+	for _, o := range ours {
+		if !contains(base, o) {
+			result = append(result, o)
+		}
+	}
+	for _, t := range theirs {
+		if !contains(base, t) && !contains(ours, t) {
+			result = append(result, t)
+		}
 	}
 
-	return merged, nil
+	return result, nil
 }
 
 func valuesEqual(a, b interface{}) bool {
