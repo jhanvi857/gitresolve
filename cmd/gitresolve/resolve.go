@@ -62,6 +62,10 @@ var resolveCmd = &cobra.Command{
 		}
 
 		resolvedFiles := 0
+		autoResolved := 0
+		manualRequired := 0
+		criticalConflicts := 0
+
 		for _, file := range files {
 			if resolveFileName != "" && file != resolveFileName {
 				continue
@@ -90,6 +94,16 @@ var resolveCmd = &cobra.Command{
 			}
 
 			for _, c := range conflicts {
+				conflict.Classify(c)
+				if c.CanAutoResolve {
+					autoResolved++
+				} else {
+					manualRequired++
+					if c.Severity == conflict.SeverityCritical {
+						criticalConflicts++
+					}
+				}
+
 				opts := conflict.ResolveOptions{
 					NonInteractive: resolveNonInteractive,
 					Timeout:        resolveTimeout,
@@ -101,7 +115,6 @@ var resolveCmd = &cobra.Command{
 					}
 					continue
 				}
-				conflict.Classify(c)
 			}
 
 			newContent := conflict.CompileResolution(content, conflicts)
@@ -141,9 +154,15 @@ var resolveCmd = &cobra.Command{
 		}
 
 		if resolveDryRun {
-			fmt.Printf("Dry-run complete. Files that would be resolved: %d\n", resolvedFiles)
+			fmt.Printf("\nDry-run complete. Files that would be resolved: %d\n", resolvedFiles)
 		} else {
-			fmt.Printf("Resolve complete. Files resolved: %d\n", resolvedFiles)
+			fmt.Printf("\nResolve complete. Summary:\n")
+			fmt.Printf("  %d blocks auto-resolved\n", autoResolved)
+			fmt.Printf("  %d blocks required manual input\n", manualRequired)
+			if criticalConflicts > 0 {
+				fmt.Printf("  %d critical conflicts handled\n", criticalConflicts)
+			}
+			fmt.Printf("Total files updated: %d\n", resolvedFiles)
 		}
 	},
 }
