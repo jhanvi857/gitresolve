@@ -92,10 +92,25 @@ func Classify(c *Conflict) {
 		return
 	}
 
+	// rule 8: scalar change (single line, non-critical, non-signature)
+	if isScalarChange(c.OurLines, c.TheirLines) {
+		c.Type = TypeScalar
+		c.Severity = SeverityMedium
+		c.CanAutoResolve = false
+		return
+	}
+
 	// default: logic conflict, medium severity, needs human review
 	c.Type = TypeLogic
 	c.Severity = SeverityMedium
 	c.CanAutoResolve = false
+}
+
+func isScalarChange(ours, theirs []string) bool {
+	// A scalar change is a very small (1-line) modification to an existing line
+	// that doesn't trigger signature detection, import detection, etc.
+	// It's still safer to have human review, but we mark it as Scalar for better UX.
+	return len(ours) == 1 && len(theirs) == 1
 }
 
 func containsComplexImports(filePath string, ours, theirs []string) bool {
