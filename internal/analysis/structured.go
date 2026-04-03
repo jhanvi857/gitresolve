@@ -28,15 +28,30 @@ func MergeJSON(base, ours, theirs []byte) (StructuredMergeResult, error) {
 	var oursMap map[string]interface{}
 	var theirsMap map[string]interface{}
 
-	// json.Unmarshal converts raw JSON bytes into Go data structures
-	// if the JSON is malformed this returns an error immediately
-	if err := json.Unmarshal(base, &baseMap); err != nil {
+	parseSnippet := func(data []byte, dest *map[string]interface{}) error {
+		str := strings.TrimSpace(string(data))
+		if len(str) == 0 {
+			*dest = make(map[string]interface{})
+			return nil
+		}
+
+		if err := json.Unmarshal(data, dest); err == nil {
+			return nil
+		}
+
+		str = strings.TrimSuffix(str, ",")
+
+		wrapped := []byte("{ " + str + " }")
+		return json.Unmarshal(wrapped, dest)
+	}
+
+	if err := parseSnippet(base, &baseMap); err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeJSON: parsing base: %w", err)
 	}
-	if err := json.Unmarshal(ours, &oursMap); err != nil {
+	if err := parseSnippet(ours, &oursMap); err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeJSON: parsing ours: %w", err)
 	}
-	if err := json.Unmarshal(theirs, &theirsMap); err != nil {
+	if err := parseSnippet(theirs, &theirsMap); err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeJSON: parsing theirs: %w", err)
 	}
 	merged, conflicts := mergeMap(baseMap, oursMap, theirsMap)
@@ -45,8 +60,22 @@ func MergeJSON(base, ours, theirs []byte) (StructuredMergeResult, error) {
 		return StructuredMergeResult{}, fmt.Errorf("MergeJSON: marshaling result: %w", err)
 	}
 
+	outputStr := string(output)
+	oursStr := strings.TrimSpace(string(ours))
+	if !strings.HasPrefix(oursStr, "{") && !strings.HasPrefix(oursStr, "[") {
+		firstBrace := strings.Index(outputStr, "{")
+		lastBrace := strings.LastIndex(outputStr, "}")
+		if firstBrace != -1 && lastBrace != -1 && firstBrace < lastBrace {
+			outputStr = outputStr[firstBrace+1 : lastBrace]
+			outputStr = strings.Trim(outputStr, "\n\r")
+			if strings.HasSuffix(oursStr, ",") {
+				outputStr += ","
+			}
+		}
+	}
+
 	return StructuredMergeResult{
-		Content:      string(output),
+		Content:      outputStr,
 		Conflicts:    conflicts,
 		HasConflicts: len(conflicts) > 0,
 	}, nil
@@ -230,9 +259,6 @@ func mergeMap(base, ours, theirs map[string]interface{}) (map[string]interface{}
 }
 
 func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []StructuredConflict) {
-	// Array merging is notoriously difficult.
-	// We implement a conservative union for simple arrays and conflict for complex ones.
-	
 	// If identical, return either
 	if valuesEqual(ours, theirs) {
 		return ours, nil
@@ -246,17 +272,27 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		return ours, nil
 	}
 
-	// Potential overlap conflict.
-	// For now, given the reviewer's concern about ambiguity, we mark all simultaneous array edits as conflicts.
-	// This forces a human decision which is safer for configuration files.
-	return ours, []StructuredConflict{
-		{
-			Key:        key,
-			BaseValue:  base,
-			OurValue:   ours,
-			TheirValue: theirs,
-		},
+	// Make a copy of ours
+	merged := make([]interface{}, len(ours))
+	copy(merged, ours)
+
+	contains := func(arr []interface{}, item interface{}) bool {
+		for _, a := range arr {
+			if valuesEqual(a, item) {
+				return true
+			}
+		}
+		return false
 	}
+
+	// Append additions seamlessly
+	for _, item := range theirs {
+		if !contains(base, item) && !contains(ours, item) {
+			merged = append(merged, item)
+		}
+	}
+
+	return merged, nil
 }
 
 func valuesEqual(a, b interface{}) bool {
@@ -282,11 +318,11 @@ func IsStructuredFile(filePath string) bool {
 
 func IsCriticalFile(filePath string) bool {
 	name := strings.ToLower(filepath.Base(filePath))
-	return name == "package.json" || 
-		   name == "go.mod" || 
-		   name == "cargo.toml" || 
-		   name == "composer.json" || 
-		   name == "podfile" ||
-		   name == "yarn.lock" ||
-		   name == "package-lock.json"
+	return name == "package.json" ||
+		name == "go.mod" ||
+		name == "cargo.toml" ||
+		name == "composer.json" ||
+		name == "podfile" ||
+		name == "yarn.lock" ||
+		name == "package-lock.json"
 }
