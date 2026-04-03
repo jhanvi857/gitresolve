@@ -29,10 +29,10 @@ func Classify(c *Conflict) {
 
 	// rule 3: import block conflict
 	// all changed lines on both sides are import statements
-	if isImportConflict(c.OurLines, c.TheirLines) {
+	if isImportConflict(c.FilePath, c.OurLines, c.TheirLines) {
 		c.Type = TypeImport
 		c.Severity = SeverityLow
-		
+
 		if containsComplexImports(c.FilePath, c.OurLines, c.TheirLines) {
 			c.Severity = SeverityMedium
 			c.CanAutoResolve = false // Fallback to manual for complex python/java imports
@@ -48,7 +48,7 @@ func Classify(c *Conflict) {
 		c.Type = TypeStructured
 		if analysis.IsCriticalFile(c.FilePath) {
 			c.Severity = SeverityHigh
-			c.CanAutoResolve = false
+			c.CanAutoResolve = true // Allow structured merger to attempt safe resolution
 		} else {
 			c.Severity = SeverityLow
 			c.CanAutoResolve = true
@@ -88,7 +88,7 @@ func Classify(c *Conflict) {
 	if analysis.IsCriticalFile(c.FilePath) {
 		c.Type = TypeLogic
 		c.Severity = SeverityHigh
-		c.CanAutoResolve = false
+		c.CanAutoResolve = true
 		return
 	}
 
@@ -122,18 +122,18 @@ func containsComplexImports(filePath string, ours, theirs []string) bool {
 	allLines := append(ours, theirs...)
 	for _, line := range allLines {
 		trimmed := strings.TrimSpace(line)
-		
+
 		// Python: relative import or alias
 		if strings.HasPrefix(trimmed, "from .") || strings.Contains(trimmed, " as ") {
 			return true
 		}
-		
+
 		// Java: wildcard import
 		if strings.HasPrefix(trimmed, "import ") && strings.Contains(trimmed, "*;") {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -170,7 +170,7 @@ func linesIdentical(ours, theirs []string) bool {
 	return true
 }
 
-func isImportConflict(ours, theirs []string) bool {
+func isImportConflict(filePath string, ours, theirs []string) bool {
 	// every line on both sides must look like an import statement
 	// we check for common import patterns across languages
 	allLines := append(ours, theirs...)
@@ -179,26 +179,34 @@ func isImportConflict(ours, theirs []string) bool {
 		if trimmed == "" {
 			continue
 		}
-		if !isImportLine(trimmed) {
+		if !isImportLine(filePath, line) {
 			return false
 		}
 	}
 	return len(allLines) > 0
 }
 
-func isImportLine(line string) bool {
+func isImportLine(filePath, line string) bool {
 	// Refined heuristics with Regex to avoid false positives on normal strings
 	goImport := regexp.MustCompile(`^(import\s*(?:\(\s*)?|(?:[a-zA-Z0-9_.]+\s+)?"[a-zA-Z0-9_\-\./]+"|\))`)
 	jsImport := regexp.MustCompile(`^(import\s+.*from\s+['"].*['"]|require\(['"].*['"]\))`)
 	pyImport := regexp.MustCompile(`^(import\s+[a-zA-Z0-9_\.]+|from\s+[a-zA-Z0-9_\.]+\s+import)`)
 	javaImport := regexp.MustCompile(`^import\s+[a-zA-Z0-9_\.]+;*`)
 
+	// go.mod support
+	if strings.HasSuffix(strings.ToLower(filePath), "go.mod") {
+		goMod := regexp.MustCompile(`^(require|module|go|retract|exclude|replace)(\s+|$)`)
+		trimmed := strings.TrimSpace(line)
+		if goMod.MatchString(line) || trimmed == "(" || trimmed == ")" || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") || strings.Contains(line, " v") {
+			return true
+		}
+	}
+
 	return goImport.MatchString(line) ||
 		jsImport.MatchString(line) ||
 		pyImport.MatchString(line) ||
 		javaImport.MatchString(line)
 }
-
 
 func isDeleteModify(ours, theirs []string) bool {
 	// one side has zero lines = deletion
@@ -235,11 +243,11 @@ func isSignatureChange(filePath string, ours, theirs []string) bool {
 				return true
 			}
 		}
-		
+
 		// If AST fails or nodes not parsed perfectly cleanly (due to incomplete snippet), return true since heuristic passed
 		return true
 	}
-	
+
 	return false
 }
 
