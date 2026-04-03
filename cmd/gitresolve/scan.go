@@ -43,6 +43,8 @@ var scanCmd = &cobra.Command{
 
 		if len(conflicts) == 0 {
 			fmt.Println("No potential conflicts found.")
+			fmt.Println("\nNote: scan may miss conflicts in binary files and low-similarity renames.")
+			fmt.Println("Always run `gitresolve status` after merging.")
 			return
 		}
 
@@ -51,6 +53,9 @@ var scanCmd = &cobra.Command{
 		for _, c := range conflicts {
 			fmt.Println(" -", c)
 		}
+		
+		fmt.Println("\nNote: scan may miss conflicts in binary files and low-similarity renames.")
+		fmt.Println("Always run `gitresolve status` after merging.")
 	},
 }
 

@@ -26,7 +26,7 @@ Standard Git performs blind text integrations. `gitresolve` actually parses your
 Instead of analyzing raw text, `gitresolve` natively integrates `go-tree-sitter`. It compiles conflicting blocks into syntax trees to accurately pinpoint function signature modifications and logical refactors in **Go**, **JavaScript**, and **TypeScript**. If the syntax breaks, the merge is halted.
 
 ### 2. Structured Data Auto-Merger
-Configuration conflicts are solved instantly. The engine performs a deep recursive map merge for **JSON**, **YAML**, and **TOML**. 
+Configuration conflicts are solved instantly. The engine performs a deep recursive map merge for **JSON**, **YAML**, and **TOML** using language-native parsers. 
 - **Conservative Array Merging**: To avoid silent configuration corruption, overlapping array modifications (e.g., both branches adding different items to a server list) are marked as conflicts for human review.
 - **Critical File Protection**: Files like `package.json`, `go.mod`, and `cargo.toml` are treated as high-severity. Auto-resolution is disabled by default for these files to ensure dependency integrity.
 
