@@ -19,7 +19,48 @@ func (db *DB) SaveConflict(r ConflictRecord) error {
 	if err != nil {
 		return fmt.Errorf("SaveConflict: %w", err)
 	}
+
+	// Housekeeping: Cap at 1000 records per repo to prevent unbounded growth
+	_, _ = db.conn.Exec(`
+		DELETE FROM conflicts 
+		WHERE id IN (
+			SELECT id FROM conflicts 
+			WHERE repo_path = ? 
+			ORDER BY resolved_at DESC 
+			LIMIT -1 OFFSET 1000
+		)`, r.RepoPath)
+
 	return nil
+}
+
+type Pattern struct {
+	Label string
+	Count int
+}
+
+func (db *DB) GetPatterns(repoPath string) ([]Pattern, error) {
+	rows, err := db.conn.Query(`
+		SELECT conflict_type, COUNT(*) as c
+		FROM conflicts
+		WHERE repo_path = ?
+		GROUP BY conflict_type
+		ORDER BY c DESC`,
+		repoPath,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetPatterns: %w", err)
+	}
+	defer rows.Close()
+
+	var patterns []Pattern
+	for rows.Next() {
+		var p Pattern
+		if err := rows.Scan(&p.Label, &p.Count); err != nil {
+			return nil, err
+		}
+		patterns = append(patterns, p)
+	}
+	return patterns, nil
 }
 
 func (db *DB) GetHistory(repoPath string) ([]ConflictRecord, error) {
