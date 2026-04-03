@@ -62,28 +62,59 @@ func AutoResolve(c *Conflict, opts Options) bool {
 func mergeImports(ours, theirs []string) []string {
 	seen := make(map[string]bool)
 	var merged []string
+	var hasOpenParen bool
+	var hasCloseParen bool
 
-	for _, line := range ours {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		if !seen[trimmed] {
-			seen[trimmed] = true
-			merged = append(merged, line)
+	normalize := func(line string) string {
+		line = strings.TrimSpace(line)
+		line = strings.TrimPrefix(line, "import ")
+		line = strings.Trim(line, "()\"' ")
+		return line
+	}
+
+	process := func(lines []string) {
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue
+			}
+			if trimmed == "(" || strings.HasSuffix(trimmed, "(") {
+				hasOpenParen = true
+				continue
+			}
+			if trimmed == ")" {
+				hasCloseParen = true
+				continue
+			}
+
+			norm := normalize(line)
+			if !seen[norm] {
+				seen[norm] = true
+				merged = append(merged, line)
+			}
 		}
 	}
 
-	for _, line := range theirs {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
+	process(ours)
+	process(theirs)
+
+	var result []string
+	if hasOpenParen {
+		prefix := "("
+		for _, line := range append(ours, theirs...) {
+			if strings.Contains(line, "(") && !strings.HasPrefix(strings.TrimSpace(line), "(") {
+				prefix = line
+				break
+			}
 		}
-		if !seen[trimmed] {
-			seen[trimmed] = true
-			merged = append(merged, line)
-		}
+		result = append(result, prefix)
 	}
 
-	return merged
+	result = append(result, merged...)
+
+	if hasCloseParen {
+		result = append(result, ")")
+	}
+
+	return result
 }
