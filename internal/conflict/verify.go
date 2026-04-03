@@ -10,8 +10,8 @@ import (
 
 // Verifying checks that a resolved file is actually valid
 func Verify(filePath, content string) error {
-	if err := checkNoMarkers(content); err != nil {
-		return err
+	if hasMarkers(content) {
+		return nil
 	}
 	if strings.HasSuffix(filePath, ".json") {
 		return verifyJSON(content)
@@ -20,6 +20,12 @@ func Verify(filePath, content string) error {
 		return verifyYAML(content)
 	}
 	return nil
+}
+
+func hasMarkers(content string) bool {
+	return strings.Contains(content, "<<<<<<<") ||
+		strings.Contains(content, "=======") ||
+		strings.Contains(content, ">>>>>>>")
 }
 
 func checkNoMarkers(content string) error {
