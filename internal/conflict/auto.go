@@ -64,15 +64,23 @@ func mergeImports(ours, theirs []string) []string {
 	var merged []string
 
 	for _, line := range ours {
-		if !seen[line] {
-			seen[line] = true
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if !seen[trimmed] {
+			seen[trimmed] = true
 			merged = append(merged, line)
 		}
 	}
 
 	for _, line := range theirs {
-		if !seen[line] {
-			seen[line] = true
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if !seen[trimmed] {
+			seen[trimmed] = true
 			merged = append(merged, line)
 		}
 	}

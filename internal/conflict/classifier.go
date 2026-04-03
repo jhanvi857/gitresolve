@@ -143,7 +143,7 @@ func isImportConflict(ours, theirs []string) bool {
 
 func isImportLine(line string) bool {
 	// Refined heuristics with Regex to avoid false positives on normal strings
-	goImport := regexp.MustCompile(`^(import\s*(?:\(\s*)?|"[a-zA-Z0-9_\-\./]+"|\s+"[a-zA-Z0-9_\-\./]+")`)
+	goImport := regexp.MustCompile(`^(import\s*(?:\(\s*)?|(?:[a-zA-Z0-9_.]+\s+)?"[a-zA-Z0-9_\-\./]+"|\))`)
 	jsImport := regexp.MustCompile(`^(import\s+.*from\s+['"].*['"]|require\(['"].*['"]\))`)
 	pyImport := regexp.MustCompile(`^(import\s+[a-zA-Z0-9_\.]+|from\s+[a-zA-Z0-9_\.]+\s+import)`)
 	javaImport := regexp.MustCompile(`^import\s+[a-zA-Z0-9_\.]+;*`)
