@@ -39,17 +39,27 @@ func Resolve(c *Conflict, strategy Strategy, opts ResolveOptions) error {
 			return fmt.Errorf("conflict in %s requires manual resolution, but --non-interactive is set", c.FilePath)
 		}
 
-		fmt.Printf("\n--- Conflict in %s ---\n", c.FilePath)
-		fmt.Println("<<<<<<< OURS")
-		fmt.Println(strings.Join(c.OurLines, "\n"))
-		fmt.Println("=======")
-		fmt.Println(strings.Join(c.TheirLines, "\n"))
-		fmt.Println(">>>>>>> THEIRS")
-		
+		if c.Type == TypeScalar {
+			fmt.Printf("\n[Scalar] %s (L%d-%d)\n", c.FilePath, c.StartLine, c.EndLine)
+			fmt.Printf(" [O]urs:   %s\n", strings.Join(c.OurLines, " "))
+			fmt.Printf(" [T]heirs: %s\n", strings.Join(c.TheirLines, " "))
+		} else {
+			fmt.Printf("\n--- Conflict in %s ---\n", c.FilePath)
+			fmt.Println("<<<<<<< OURS")
+			fmt.Println(strings.Join(c.OurLines, "\n"))
+			fmt.Println("=======")
+			fmt.Println(strings.Join(c.TheirLines, "\n"))
+			fmt.Println(">>>>>>> THEIRS")
+		}
+
 		inputChan := make(chan string)
 		go func() {
 			reader := bufio.NewReader(os.Stdin)
-			fmt.Print("Select resolution [O]urs, [T]heirs, [B]oth : ")
+			if c.Type == TypeScalar {
+				fmt.Print("Resolve [O|T|B]: ")
+			} else {
+				fmt.Print("Select resolution [O]urs, [T]heirs, [B]oth : ")
+			}
 			input, _ := reader.ReadString('\n')
 			inputChan <- input
 		}()
