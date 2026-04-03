@@ -80,10 +80,13 @@ func TestStructuredConflict_ArrayAmbiguity(t *testing.T) {
 	}
 
 	Classify(c)
-	// YAML arrays are currently marked as conflicts if both sides change them
+	// YAML arrays are now merged seamlessly 
 	resolved := AutoResolve(c, Options{})
-	if resolved {
-		t.Error("should not auto-resolve ambiguous array merge")
+	if !resolved {
+		t.Error("should auto-resolve additive array merge")
+	}
+	if !strings.Contains(c.Resolution, "host: db2") || !strings.Contains(c.Resolution, "host: db3") {
+		t.Errorf("array additive merge failed: %s", c.Resolution)
 	}
 }
 
