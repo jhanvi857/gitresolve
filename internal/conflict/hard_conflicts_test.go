@@ -47,14 +47,17 @@ func TestStructuredConflict_PackageJSON(t *testing.T) {
 	if c.Severity != SeverityHigh {
 		t.Errorf("expected High severity for package.json, got %v", c.Severity)
 	}
-	if c.CanAutoResolve {
-		t.Error("package.json should not be auto-resolved by default")
+	if !c.CanAutoResolve {
+		t.Error("package.json should be allowed to attempt auto-resolution")
 	}
 
-	// Try auto-resolve anyway to see if structured merger works but is correctly ignored if CanAutoResolve is false
+	// Try auto-resolve
 	resolved := AutoResolve(c, Options{})
-	if resolved {
-		t.Error("AutoResolve should respect CanAutoResolve=false (it shouldn't even be called, but the logic should handle it if forced)")
+	if !resolved {
+		t.Error("AutoResolve should succeed for non-overlapping package.json changes")
+	}
+	if !strings.Contains(c.Resolution, "\"version\": \"1.0.1\"") || !strings.Contains(c.Resolution, "\"axios\": \"0.21.1\"") {
+		t.Errorf("AutoResolve failed to merge package.json correctly: %s", c.Resolution)
 	}
 
 	// Test the case where we force it but it has conflicting array edits (YAML example)
@@ -217,8 +220,13 @@ func TestGoModConflict(t *testing.T) {
 		},
 	}
 	Classify(c)
-	if c.Severity != SeverityHigh || c.CanAutoResolve {
-		t.Error("go.mod should be High severity and not auto-resolved")
+	if c.Severity != SeverityHigh || !c.CanAutoResolve {
+		t.Error("go.mod should be High severity and allowed to attempt auto-resolve")
+	}
+	
+	resolved := AutoResolve(c, Options{})
+	if !resolved {
+		t.Error("go.mod non-overlapping changes should be auto-merged by import deduplication logic")
 	}
 }
 
