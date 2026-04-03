@@ -251,7 +251,6 @@ func mergeMap(base, ours, theirs map[string]interface{}) (map[string]interface{}
 				OurValue:   ourVal,
 				TheirValue: theirVal,
 			})
-			result[key] = ourVal // Default to ours in output but mark conflict
 		}
 	}
 
@@ -290,6 +289,10 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		if !contains(base, item) && !contains(ours, item) {
 			merged = append(merged, item)
 		}
+	}
+
+	if len(ours) < len(base) || len(theirs) < len(base) {
+		return merged, []StructuredConflict{{Key: key, BaseValue: base, OurValue: ours, TheirValue: theirs}}
 	}
 
 	return merged, nil

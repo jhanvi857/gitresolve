@@ -23,7 +23,7 @@ func ParseFile(filePath string, content []byte) []*Conflict {
 		} else if strings.HasPrefix(line, "||||||| ") {
 			side = 2
 			continue
-		} else if strings.TrimSpace(line) == "=======" {
+		} else if strings.HasPrefix(line, "=======") {
 			if inConflict {
 				side = 3
 			}
