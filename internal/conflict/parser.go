@@ -12,7 +12,7 @@ func ParseFile(filePath string, content []byte) []*Conflict {
 	var currentConflict *Conflict
 	var side int
 	for i, line := range lines {
-		if strings.HasPrefix(line, "<<<<<<< ") {
+		if strings.HasPrefix(line, "<<<<<<<") {
 			inConflict = true
 			side = 1
 			currentConflict = &Conflict{
@@ -20,7 +20,7 @@ func ParseFile(filePath string, content []byte) []*Conflict {
 				StartLine: i + 1,
 			}
 			continue
-		} else if strings.HasPrefix(line, "||||||| ") {
+		} else if strings.HasPrefix(line, "|||||||") {
 			side = 2
 			continue
 		} else if strings.HasPrefix(line, "=======") {
@@ -28,7 +28,7 @@ func ParseFile(filePath string, content []byte) []*Conflict {
 				side = 3
 			}
 			continue
-		} else if strings.HasPrefix(line, ">>>>>>> ") {
+		} else if strings.HasPrefix(line, ">>>>>>>") {
 			inConflict = false
 			side = 0
 			if currentConflict != nil {
