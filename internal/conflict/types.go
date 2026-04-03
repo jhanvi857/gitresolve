@@ -22,6 +22,7 @@ const (
 	TypeLogic
 	TypeStructured
 	TypeDeleteModify
+	TypeScalar
 	TypeUnknown
 )
 

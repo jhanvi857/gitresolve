@@ -32,7 +32,13 @@ func Classify(c *Conflict) {
 	if isImportConflict(c.OurLines, c.TheirLines) {
 		c.Type = TypeImport
 		c.Severity = SeverityLow
-		c.CanAutoResolve = true
+		
+		if containsComplexImports(c.FilePath, c.OurLines, c.TheirLines) {
+			c.Severity = SeverityMedium
+			c.CanAutoResolve = false // Fallback to manual for complex python/java imports
+		} else {
+			c.CanAutoResolve = true
+		}
 		return
 	}
 
@@ -90,6 +96,30 @@ func Classify(c *Conflict) {
 	c.Type = TypeLogic
 	c.Severity = SeverityMedium
 	c.CanAutoResolve = false
+}
+
+func containsComplexImports(filePath string, ours, theirs []string) bool {
+	// Go imports will be handled correctly by go/ast in auto.go, so we don't block them here
+	if strings.HasSuffix(filePath, ".go") {
+		return false
+	}
+
+	allLines := append(ours, theirs...)
+	for _, line := range allLines {
+		trimmed := strings.TrimSpace(line)
+		
+		// Python: relative import or alias
+		if strings.HasPrefix(trimmed, "from .") || strings.Contains(trimmed, " as ") {
+			return true
+		}
+		
+		// Java: wildcard import
+		if strings.HasPrefix(trimmed, "import ") && strings.Contains(trimmed, "*;") {
+			return true
+		}
+	}
+	
+	return false
 }
 
 func isWhitespaceOnly(ours, theirs []string) bool {

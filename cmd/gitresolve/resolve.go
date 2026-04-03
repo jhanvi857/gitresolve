@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
@@ -16,6 +17,8 @@ import (
 var resolveFileName string
 var resolveStrategy string
 var resolveDryRun bool
+var resolveNonInteractive bool
+var resolveTimeout time.Duration
 
 var resolveCmd = &cobra.Command{
 	Use:   "resolve",
@@ -87,8 +90,15 @@ var resolveCmd = &cobra.Command{
 			}
 
 			for _, c := range conflicts {
-				if err := conflict.Resolve(c, strategy); err != nil {
+				opts := conflict.ResolveOptions{
+					NonInteractive: resolveNonInteractive,
+					Timeout:        resolveTimeout,
+				}
+				if err := conflict.Resolve(c, strategy, opts); err != nil {
 					fmt.Printf("Resolve failed for %s: %v\n", file, err)
+					if resolveNonInteractive {
+						os.Exit(1)
+					}
 					continue
 				}
 				conflict.Classify(c)
@@ -168,4 +178,6 @@ func init() {
 	resolveCmd.Flags().StringVar(&resolveFileName, "file", "", "resolve a specific file")
 	resolveCmd.Flags().StringVar(&resolveStrategy, "strategy", "interactive", "resolve strategy: interactive|ours|theirs|both")
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dry-run", false, "show what would happen without writing")
+	resolveCmd.Flags().BoolVar(&resolveNonInteractive, "non-interactive", false, "fail on conflicts requiring manual resolution instead of prompting")
+	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 0, "timeout for interactive prompt (e.g. 30s). Auto-selects theirs if reached.")
 }
