@@ -65,13 +65,39 @@ Performs deep recursive map merges for JSON, YAML, and TOML using language-nativ
 
 ---
 
-## Special Unique Features
+## Robust Testing Framework
+
+`gitresolve` includes a production-grade testing ecosystem designed to validate conflict resolution accuracy across four distinct severity levels.
+
+### Tiered Test Suite
+
+1. **Level 1 (Easy)**: Validates whitespace changes, identical dual-sided modifications, and Go import deduplication.
+2. **Level 2 (Medium)**: Tests JSON deep object merging, YAML array overlaps, and `go.mod` require block conflicts.
+3. **Level 3 (Hard)**: Resolves complex `package.json` script updates, delete vs modify conflicts, and multi-file batch resolutions.
+4. **Level 4 (Severe)**: Stress tests AST parsing resilience, concurrent lock contention, and database migration file consistency.
+
+### Testing Workflow
+The project utilizes a dedicated Python-based conflict generator and a PowerShell-driven test runner to ensure environment consistency.
+
+```mermaid
+graph LR
+    Generator[Conflict Generator] --> |Creates| Fixtures[Test Fixtures]
+    Fixtures --> |Input| Runner[Test Runner]
+    Runner --> |Executes| Binary[gitresolve Binary]
+    Binary --> |Produces| Result[Resolution Output]
+    Result --> |Validated by| Checker[Syntax & Marker Check]
+    Checker --> |Generates| Report[JUnit/Markdown Report]
+```
+
+---
+
+## Advanced Features
 
 ### 1. Diagnostic Conflict Pattern Detection
-Analyze the root cause of friction in your repository. By tracking history, identify the most common conflict types (e.g., Scalar 42%, Signature 15%), helping teams optimize their branching policies.
+Analyze the root cause of friction in your repository. By tracking history, identify the most common conflict types (e.g. Scalar 42%, Signature 15%), helping teams optimize their branching policies.
 
 ### 2. Tiered Interaction Model (Scalar UX)
-The interactive prompter adapts to the complexity of the conflict. For minor single-line changes (TypeScalar), it provides a concise one-line comparison instead of the standard side-by-side block, reducing developer cognitive load for trivial edits.
+The interactive prompter adapts to the complexity of the conflict. For minor single-line changes (TypeScalar), it provides a concise one-line comparison instead of the standard side-by-side block, reducing developer cognitive load.
 
 ### 3. CI and Automated Environment Interop
 Specifically designed for automated pipelines with `--non-interactive` (exits with status 1 on manual requirements) and `--timeout` flags (auto-selects their-side resolution after a set duration).
@@ -123,6 +149,7 @@ flowchart TD
 | :--- | :--- |
 | `gitresolve resolve` | Resolves remaining conflicts interactively or via automation. |
 | `gitresolve resolve --non-interactive` | Fails on manual resolution requirements; suitable for CI pipelines. |
+| `gitresolve resolve --strategy <ours/theirs/both>` | Applies a specific strategy to all remaining automated conflicts. |
 | `gitresolve resolve --timeout <duration>`| Auto-selects their-side resolution after timeout (e.g. 30s). |
 | `gitresolve resolve --dry-run` | Shows what would happen without writing any file or acquiring the lock. |
 | `gitresolve scan --target <branch>` | Predicts conflicts against a target branch using modern git merge-tree. |
