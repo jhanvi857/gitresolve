@@ -65,6 +65,7 @@ var resolveCmd = &cobra.Command{
 		autoResolved := 0
 		manualRequired := 0
 		criticalConflicts := 0
+		hadHardFailure := false
 
 		for _, file := range files {
 			if resolveFileName != "" && file != resolveFileName {
@@ -95,10 +96,19 @@ var resolveCmd = &cobra.Command{
 
 			for _, c := range conflicts {
 				conflict.Classify(c)
-				if c.CanAutoResolve {
+				if conflict.ShouldAutoApply(c) {
 					autoResolved++
 				} else {
 					manualRequired++
+					if conflict.NeedsGuidedChoice(c) {
+						fmt.Printf("Guided choice: %s L%d-%d [confidence=%.2f]. Suggested strategy: ours|theirs|both\n", file, c.StartLine, c.EndLine, c.Confidence)
+					}
+					if c.ManualReason != "" {
+						fmt.Printf("  reason: %s\n", c.ManualReason)
+					}
+					if c.SuggestHint != "" {
+						fmt.Printf("  hint: %s\n", c.SuggestHint)
+					}
 					if c.Severity == conflict.SeverityCritical {
 						criticalConflicts++
 					}
@@ -120,6 +130,10 @@ var resolveCmd = &cobra.Command{
 			newContent := conflict.CompileResolution(content, conflicts)
 			if err := conflict.Verify(file, newContent); err != nil {
 				fmt.Printf("Verification failed for %s: %v\n", file, err)
+				hadHardFailure = true
+				if resolveNonInteractive {
+					os.Exit(1)
+				}
 				continue
 			}
 
@@ -130,6 +144,10 @@ var resolveCmd = &cobra.Command{
 					continue
 				}
 				fmt.Printf("Error writing %s: %v\n", file, err)
+				hadHardFailure = true
+				if resolveNonInteractive {
+					os.Exit(1)
+				}
 				continue
 			}
 
@@ -163,6 +181,10 @@ var resolveCmd = &cobra.Command{
 				fmt.Printf("  %d critical conflicts handled\n", criticalConflicts)
 			}
 			fmt.Printf("Total files updated: %d\n", resolvedFiles)
+		}
+
+		if hadHardFailure {
+			os.Exit(1)
 		}
 	},
 }

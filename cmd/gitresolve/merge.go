@@ -53,6 +53,7 @@ var mergeCmd = &cobra.Command{
 
 		fmt.Printf("Scanning index. Found %d unmerged conflicts...\n", len(files))
 		writer := safety.NewWriter(dryRun)
+		hadHardFailure := false
 
 		for _, file := range files {
 			fmt.Printf("\n--- Processing %s ---\n", file)
@@ -75,7 +76,7 @@ var mergeCmd = &cobra.Command{
 
 			for _, c := range conflicts {
 				conflict.Classify(c)
-				if c.CanAutoResolve {
+				if conflict.ShouldAutoApply(c) {
 					resolved := conflict.AutoResolve(c, conflict.Options{
 						NoAutoStructured: noAutoStructured,
 					})
@@ -90,9 +91,36 @@ var mergeCmd = &cobra.Command{
 								Strategy:     "auto",
 							})
 						}
+					} else {
+						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
+						if c.ManualReason != "" {
+							fmt.Printf("   reason: %s\n", c.ManualReason)
+						}
+						if c.SuggestHint != "" {
+							fmt.Printf("   hint: %s\n", c.SuggestHint)
+						}
+						if dbErr == nil {
+							_ = db.SaveConflict(store.ConflictRecord{
+								RepoPath:     repoPath,
+								FilePath:     file,
+								ConflictType: typeLabel(c.Type),
+								Severity:     severityLabel(c.Severity),
+								Strategy:     "manual-required",
+							})
+						}
 					}
 				} else {
-					fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
+					if conflict.NeedsGuidedChoice(c) {
+						fmt.Printf(" > Guided choice needed [severity=%d confidence=%.2f type=%v] in %s. Suggested strategies: ours/theirs/both.\n", c.Severity, c.Confidence, c.Type, file)
+					} else {
+						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
+					}
+					if c.ManualReason != "" {
+						fmt.Printf("   reason: %s\n", c.ManualReason)
+					}
+					if c.SuggestHint != "" {
+						fmt.Printf("   hint: %s\n", c.SuggestHint)
+					}
 					if dbErr == nil {
 						_ = db.SaveConflict(store.ConflictRecord{
 							RepoPath:     repoPath,
@@ -108,7 +136,8 @@ var mergeCmd = &cobra.Command{
 			if autoResolvedCount > 0 {
 				newContent := conflict.CompileResolution(content, conflicts)
 				if err := conflict.Verify(file, newContent); err != nil {
-					fmt.Println("Error: Verification failed:", err)
+					fmt.Println("Error: Verification failed (hard stop for file):", err)
+					hadHardFailure = true
 					continue
 				}
 
@@ -118,6 +147,7 @@ var mergeCmd = &cobra.Command{
 						fmt.Printf(" > [dry-run] would apply auto-resolution to %s (%d/%d blocks).\n", file, autoResolvedCount, len(conflicts))
 					} else {
 						fmt.Println("Error: Atomic write failed:", err)
+						hadHardFailure = true
 						continue
 					}
 				}
@@ -134,6 +164,9 @@ var mergeCmd = &cobra.Command{
 		}
 
 		fmt.Println("\nMerge scan complete.")
+		if hadHardFailure {
+			os.Exit(1)
+		}
 	},
 }
 

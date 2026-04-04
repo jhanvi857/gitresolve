@@ -3,21 +3,30 @@ package conflict
 import (
 	"encoding/json"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
 
 // Verifying checks that a resolved file is actually valid
 func Verify(filePath, content string) error {
-	if hasMarkers(content) {
-		return nil
+	if err := checkNoMarkers(content); err != nil {
+		return err
 	}
 	if strings.HasSuffix(filePath, ".json") {
 		return verifyJSON(content)
 	}
 	if strings.HasSuffix(filePath, ".yaml") || strings.HasSuffix(filePath, ".yml") {
 		return verifyYAML(content)
+	}
+	if strings.HasSuffix(filePath, ".toml") {
+		return verifyTOML(content)
+	}
+	if strings.HasSuffix(filePath, ".go") {
+		return verifyGo(content)
 	}
 	return nil
 }
@@ -55,6 +64,22 @@ func verifyYAML(content string) error {
 	var v interface{}
 	if err := yaml.Unmarshal([]byte(content), &v); err != nil {
 		return fmt.Errorf("verify: invalid YAML after resolution: %w", err)
+	}
+	return nil
+}
+
+func verifyTOML(content string) error {
+	var v map[string]interface{}
+	if err := toml.Unmarshal([]byte(content), &v); err != nil {
+		return fmt.Errorf("verify: invalid TOML after resolution: %w", err)
+	}
+	return nil
+}
+
+func verifyGo(content string) error {
+	fset := token.NewFileSet()
+	if _, err := parser.ParseFile(fset, "resolved.go", content, parser.AllErrors); err != nil {
+		return fmt.Errorf("verify: invalid Go syntax after resolution: %w", err)
 	}
 	return nil
 }
