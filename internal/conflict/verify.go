@@ -32,18 +32,30 @@ func Verify(filePath, content string) error {
 }
 
 func hasMarkers(content string) bool {
-	return strings.Contains(content, "<<<<<<<") ||
-		strings.Contains(content, "=======") ||
-		strings.Contains(content, ">>>>>>>")
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "<<<<<<<") ||
+			strings.HasPrefix(line, ">>>>>>>") ||
+			strings.HasPrefix(line, "|||||||") ||
+			line == "=======" {
+			return true
+		}
+	}
+	return false
 }
 
 func checkNoMarkers(content string) error {
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, "<<<<<<<") ||
-			strings.HasPrefix(line, "=======") ||
-			strings.HasPrefix(line, ">>>>>>>") {
-			return fmt.Errorf("verify: conflict marker found at line %d", i+1)
+	for i, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "<<<<<<<") {
+			return fmt.Errorf("verify: conflict marker <<<<<<< found on line %d", i+1)
+		}
+		if strings.HasPrefix(line, ">>>>>>>") {
+			return fmt.Errorf("verify: conflict marker >>>>>>> found on line %d", i+1)
+		}
+		if strings.HasPrefix(line, "|||||||") {
+			return fmt.Errorf("verify: diff3 base marker ||||||| found on line %d", i+1)
+		}
+		if line == "=======" {
+			return fmt.Errorf("verify: conflict marker ======= found on line %d", i+1)
 		}
 	}
 	return nil
