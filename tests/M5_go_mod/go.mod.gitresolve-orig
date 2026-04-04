@@ -1,0 +1,7 @@
+module t
+require (a v1
+<<<<<<< HEAD
+b v1)
+=======
+c v1)
+>>>>>>> theirs
