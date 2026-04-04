@@ -13,7 +13,7 @@ type DB struct {
 
 // Open opens the SQLite database and runs migrations
 func Open(dbPath string) (*DB, error) {
-	conn, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)")
+	conn, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("store.Open: %w", err)
 	}

@@ -15,8 +15,8 @@ import (
 )
 
 // lockfile : file we create to signal that gitresolve is running.
-// If it exists, we assume another process is running and exit with an error.
-const LockFile = ".gitresolve.lock"
+// Stored inside .git/ to avoid polluting the working tree and git status.
+const LockFile = ".git/gitresolve.lock"
 
 // AcquireLock creates the lock file. If it already exists, it checks if the process is still alive.
 func AcquireLock(repoPath string) error {

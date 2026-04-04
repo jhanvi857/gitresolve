@@ -2,7 +2,9 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
@@ -13,7 +15,10 @@ import (
 // this file finds those files, checks individual ones, and marks them resolved
 
 func ConflictedFiles(r *Repository) ([]string, error) {
-	out, err := exec.Command("git", "diff", "--name-only", "--diff-filter=U").Output()
+	// Run git diff from the repository's working directory, not CWD
+	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=U")
+	cmd.Dir = r.Path
+	out, err := cmd.Output()
 	if err != nil {
 		fmt.Println("Warning: Could not get conflicted files from index.")
 	}
@@ -23,9 +28,15 @@ func ConflictedFiles(r *Repository) ([]string, error) {
 
 	for _, l := range lines {
 		l = strings.TrimSpace(l)
-		if l != "" {
-			conflicted = append(conflicted, l)
+		if l == "" {
+			continue
 		}
+		// Validate each path is within the repo (prevents path traversal)
+		if err := validateRepoPath(r.Path, l); err != nil {
+			fmt.Printf("Warning: skipping unsafe path %q: %v\n", l, err)
+			continue
+		}
+		conflicted = append(conflicted, l)
 	}
 
 	if len(conflicted) == 0 {
@@ -33,6 +44,25 @@ func ConflictedFiles(r *Repository) ([]string, error) {
 	}
 
 	return conflicted, nil
+}
+
+// validateRepoPath ensures a relative path does not escape the repository root.
+func validateRepoPath(repoRoot, relativePath string) error {
+	absRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return fmt.Errorf("resolving repo root: %w", err)
+	}
+
+	absFile, err := filepath.Abs(filepath.Join(repoRoot, relativePath))
+	if err != nil {
+		return fmt.Errorf("resolving file path: %w", err)
+	}
+
+	if !strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) && absFile != absRoot {
+		return fmt.Errorf("path escapes repository root")
+	}
+
+	return nil
 }
 
 func IsConflicted(r *Repository, filePath string) (bool, error) {
@@ -63,16 +93,65 @@ func isStatusConflicted(fileStatus *gogit.FileStatus) bool {
 }
 
 func MarkResolved(r *Repository, filePath string) error {
-	worktree, err := r.repo.Worktree()
-	if err != nil {
-		return fmt.Errorf("MarkResolved: %w", err)
+	// Validate path before passing to git add
+	if err := validateRepoPath(r.Path, filePath); err != nil {
+		return fmt.Errorf("MarkResolved: unsafe path: %w", err)
 	}
 
-	// git add : moves file from conflicted to staged
-	_, err = worktree.Add(filePath)
-	if err != nil {
-		return fmt.Errorf("MarkResolved: staging %s: %w", filePath, err)
+	// calling git add directly is way more reliable on windows with unmerged entries
+	// Use "--" to separate flags from file paths (prevents flag injection)
+	cmd := exec.Command("git", "add", "--", filePath)
+	cmd.Dir = r.Path
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("MarkResolved: git add: %w (output: %s)", err, string(out))
 	}
-
 	return nil
 }
+
+func ScanForMarkers(repoPath string) ([]string, error) {
+	var results []string
+	absRoot, _ := filepath.Abs(repoPath)
+
+	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			if info.Name() == ".git" || info.Name() == "node_modules" || info.Name() == "vendor" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// check for markers in text files
+		if isLikelyText(path) {
+			content, err := os.ReadFile(path)
+			if err == nil {
+				if strings.Contains(string(content), "<<<<<<<") &&
+					strings.Contains(string(content), "=======") &&
+					strings.Contains(string(content), ">>>>>>>") {
+					rel, err := filepath.Rel(repoPath, path)
+					if err == nil {
+						// Validate the path doesn't escape the repo
+						absFile, _ := filepath.Abs(path)
+						if strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) {
+							results = append(results, rel)
+						}
+					}
+				}
+			}
+		}
+		return nil
+	})
+	return results, err
+}
+
+func isLikelyText(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".go", ".js", ".ts", ".json", ".yaml", ".yml", ".toml", ".txt", ".md", ".py", ".java", ".c", ".cpp", ".h", ".sh", ".rs", ".rb", ".php", ".css", ".html", ".xml", ".jsx", ".tsx", ".swift", ".kt":
+		return true
+	}
+	return false
+}
+
