@@ -153,8 +153,11 @@ var mergeCmd = &cobra.Command{
 				}
 
 				if autoResolvedCount == len(conflicts) && !dryRun {
-					git.MarkResolved(r, file)
-					fmt.Printf(" > Successfully auto-resolved 100%% of conflicts in %s and staged.\n", file)
+					if err := git.MarkResolved(r, file); err != nil {
+						fmt.Printf("Warning: failed to stage %s: %v\n", file, err)
+					} else {
+						fmt.Printf(" > Successfully auto-resolved 100%% of conflicts in %s and staged.\n", file)
+					}
 				} else {
 					fmt.Printf(" > Auto-resolved %d of %d conflicts in %s. Manual review still required for remainder.\n", autoResolvedCount, len(conflicts), file)
 				}

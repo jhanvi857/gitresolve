@@ -139,18 +139,25 @@ func MergeTOML(base, ours, theirs []byte) (StructuredMergeResult, error) {
 func mergeMap(base, ours, theirs map[string]interface{}) (map[string]interface{}, []StructuredConflict) {
 	result := make(map[string]interface{})
 	var conflicts []StructuredConflict
-	allKeys := make(map[string]bool)
+	allKeysSet := make(map[string]bool)
 	for k := range base {
-		allKeys[k] = true
+		allKeysSet[k] = true
 	}
 	for k := range ours {
-		allKeys[k] = true
+		allKeysSet[k] = true
 	}
 	for k := range theirs {
-		allKeys[k] = true
+		allKeysSet[k] = true
 	}
 
-	for key := range allKeys {
+	// Sort keys for deterministic output (Fix V5: same input -> same output)
+	allKeys := make([]string, 0, len(allKeysSet))
+	for k := range allKeysSet {
+		allKeys = append(allKeys, k)
+	}
+	sort.Strings(allKeys)
+
+	for _, key := range allKeys {
 		baseVal, baseExists := base[key]
 		ourVal, ourExists := ours[key]
 		theirVal, theirExists := theirs[key]
@@ -355,11 +362,6 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 	}
 
 	// Semantic merge: combine additions and deletions
-	// Elements in base but missing in ours = deleted by us
-	// Elements in base but missing in theirs = deleted by them
-	// Elements in ours but not in base = added by us
-	// Elements in theirs but not in base = added by them
-
 	contains := func(arr []interface{}, item interface{}) bool {
 		for _, a := range arr {
 			if valuesEqual(a, item) {
@@ -368,6 +370,8 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		}
 		return false
 	}
+
+	var conflicts []StructuredConflict
 
 	deletedByUs := make(map[int]bool)
 	deletedByThem := make(map[int]bool)
@@ -380,9 +384,32 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		}
 	}
 
-	// If an element was deleted by one but modified/kept by other, we might have Conflict.
-	// But for simple lists, we'll just respect the deletion.
-	// Only if BOTH deleted or BOTH added the same things, it's easy.
+	// Detect conflicting deletions: one side deleted, other side kept
+	for i, b := range base {
+		if deletedByUs[i] && !deletedByThem[i] && !contains(ours, b) {
+			// ours deleted this element, theirs kept it — potential conflict
+			// For simple values we auto-resolve by respecting deletion,
+			// but for complex values (maps) we flag it.
+			if _, isMap := b.(map[string]interface{}); isMap {
+				conflicts = append(conflicts, StructuredConflict{
+					Key:        fmt.Sprintf("%s[%d]", key, i),
+					BaseValue:  b,
+					OurValue:   nil,
+					TheirValue: b,
+				})
+			}
+		}
+		if deletedByThem[i] && !deletedByUs[i] && !contains(theirs, b) {
+			if _, isMap := b.(map[string]interface{}); isMap {
+				conflicts = append(conflicts, StructuredConflict{
+					Key:        fmt.Sprintf("%s[%d]", key, i),
+					BaseValue:  b,
+					OurValue:   b,
+					TheirValue: nil,
+				})
+			}
+		}
+	}
 
 	var result []interface{}
 	for i, b := range base {
@@ -401,7 +428,7 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 		}
 	}
 
-	return result, nil
+	return result, conflicts
 }
 
 func parseYAMLAny(data []byte) (interface{}, error) {

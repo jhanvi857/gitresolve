@@ -43,11 +43,17 @@ type TreeEntry struct {
 // readObject reads and decompresses any git object from .git/objects/
 // returns the object type commit/tree/blob and the raw content bytes
 func readObject(repoPath string, sha string) (string, []byte, error) {
+	// Validate SHA format (must be 40 hex chars) to prevent panics
+	if len(sha) < 4 {
+		return "", nil, fmt.Errorf("readObject: invalid SHA %q (too short)", sha)
+	}
+	for _, c := range sha {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return "", nil, fmt.Errorf("readObject: invalid SHA %q (non-hex characters)", sha)
+		}
+	}
+
 	// git splits SHA into two parts for storage on disk
-	// first 2 chars become the directory name
-	// remaining 38 chars become the filename
-	// example: "a3f2c1d9e4b87654321abcdef1234567890abcd"
-	// stored at: .git/objects/a3/f2c1d9e4b87654321abcdef1234567890abcd
 	dir := sha[:2]
 	file := sha[2:]
 

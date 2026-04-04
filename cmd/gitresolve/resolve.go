@@ -39,15 +39,21 @@ var resolveCmd = &cobra.Command{
 		defer git.Close(r)
 		HandleSignals(r)
 
+		repoPath := "."
 		files, err := git.ConflictedFiles(r)
 		if err != nil {
-			fmt.Println("Resolve check:", err)
+			// fallback: scan for markers in any files if index is clean (e.g. accidentally already staged)
+			fmt.Println("No unmerged files in index. Scanning for mis-staged markers...")
+			files, _ = git.ScanForMarkers(repoPath)
+		}
+
+		if len(files) == 0 {
+			fmt.Println("No conflicts found (index or content).")
 			return
 		}
 
 		writer := safety.NewWriter(resolveDryRun)
 
-		repoPath := "."
 		db, dbErr := openStore(repoPath)
 		if dbErr == nil {
 			defer db.Close()
@@ -78,14 +84,8 @@ var resolveCmd = &cobra.Command{
 				continue
 			}
 
-			if !hasConflictMarkers(string(content)) {
-				continue
-			}
-
 			conflicts := conflict.ParseFile(file, content)
-			if len(conflicts) == 0 {
-				continue
-			}
+			// we no longer skip if no markers found; we still want to resolve/stage unmerged files
 
 			if !resolveDryRun {
 				if err := safety.PreserveOriginal(file); err != nil {

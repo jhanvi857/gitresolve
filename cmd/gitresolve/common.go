@@ -11,6 +11,7 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/store"
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 )
 
 func HandleSignals(r *git.Repository) {
@@ -36,6 +37,47 @@ func openStore(repoPath string) (*store.DB, error) {
 		return nil, fmt.Errorf("openStore: %w", err)
 	}
 	return db, nil
+}
+
+func ResolveRepoRoot() (string, error) {
+	out, err := runGit("rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", fmt.Errorf("not inside a git repository: %w", err)
+	}
+	root := strings.TrimSpace(out)
+	root = filepath.FromSlash(root)
+	return root, nil
+}
+func ValidatePath(repoRoot, filePath string) error {
+	absRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return fmt.Errorf("resolving repo root: %w", err)
+	}
+
+	absFile, err := filepath.Abs(filepath.Join(repoRoot, filePath))
+	if err != nil {
+		return fmt.Errorf("resolving file path: %w", err)
+	}
+
+	if !strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) && absFile != absRoot {
+		return fmt.Errorf("path %q escapes repository root", filePath)
+	}
+
+	realRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		logger.Debug("symlink eval on root failed (non-fatal): " + err.Error())
+		realRoot = absRoot
+	}
+
+	info, statErr := os.Lstat(absFile)
+	if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+		realFile, err := filepath.EvalSymlinks(absFile)
+		if err == nil && !strings.HasPrefix(realFile, realRoot+string(filepath.Separator)) {
+			return fmt.Errorf("symlink %q points outside repository", filePath)
+		}
+	}
+
+	return nil
 }
 
 func severityLabel(s conflict.Severity) string {
