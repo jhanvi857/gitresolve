@@ -83,7 +83,7 @@ func TestStructuredConflict_ArrayAmbiguity(t *testing.T) {
 	}
 
 	Classify(c)
-	// YAML arrays are now merged seamlessly 
+	// YAML arrays are now merged seamlessly
 	resolved := AutoResolve(c, Options{})
 	if !resolved {
 		t.Error("should auto-resolve additive array merge")
@@ -116,12 +116,12 @@ func TestSignatureChange_Go(t *testing.T) {
 
 func TestNoAutoStructuredFlag(t *testing.T) {
 	c := &Conflict{
-		FilePath: "data.json",
-		BaseLines: []string{"{\"key\": \"base\"}"},
-		OurLines: []string{"{\"key\": \"ours\"}"},
-		TheirLines: []string{"{\"key\": \"base\"}"},
+		FilePath:       "data.json",
+		BaseLines:      []string{"{\"key\": \"base\"}"},
+		OurLines:       []string{"{\"key\": \"ours\"}"},
+		TheirLines:     []string{"{\"key\": \"base\"}"},
 		CanAutoResolve: true, // Manually set for test
-		Type: TypeStructured,
+		Type:           TypeStructured,
 	}
 
 	// Should resolve if flag is false
@@ -141,7 +141,7 @@ func TestValuesEqual(t *testing.T) {
 	// but we'll just test if json parsing etc works for comparison
 	var a interface{} = map[string]interface{}{"a": 1, "b": []int{1, 2}}
 	var b interface{} = map[string]interface{}{"b": []int{1, 2}, "a": 1}
-	
+
 	// They are semantically equal but might have different keys order in JSON if not careful
 	// But json.Marshal for maps is deterministic? Yes, it sorts by key.
 	aj, _ := json.Marshal(a)
@@ -152,8 +152,8 @@ func TestValuesEqual(t *testing.T) {
 }
 func TestTSXConflict(t *testing.T) {
 	c := &Conflict{
-		FilePath: "Component.tsx",
-		OurLines: []string{"const App = () => <div className='foo'>{count}</div>;"},
+		FilePath:   "Component.tsx",
+		OurLines:   []string{"const App = () => <div className='foo'>{count}</div>;"},
 		TheirLines: []string{"const App = () => <div className='bar'>{total}</div>;"},
 	}
 	Classify(c)
@@ -223,7 +223,7 @@ func TestGoModConflict(t *testing.T) {
 	if c.Severity != SeverityHigh || !c.CanAutoResolve {
 		t.Error("go.mod should be High severity and allowed to attempt auto-resolve")
 	}
-	
+
 	resolved := AutoResolve(c, Options{})
 	if !resolved {
 		t.Error("go.mod non-overlapping changes should be auto-merged by import deduplication logic")
@@ -247,7 +247,7 @@ func TestAliasedImports(t *testing.T) {
 	if !resolved {
 		t.Error("Aliased imports should be merged correctly")
 	}
-	if !strings.Contains(c.Resolution, "import g \"github.com/go-git/go-git/v5\"") {
+	if !strings.Contains(c.Resolution, "g \"github.com/go-git/go-git/v5\"") {
 		t.Error("Alias was lost in merge")
 	}
 }
@@ -289,7 +289,7 @@ func TestTOMLNestedMerge(t *testing.T) {
 		},
 	}
 	Classify(c)
-	// Cargo.toml is critical. 
+	// Cargo.toml is critical.
 	if c.Severity != SeverityHigh {
 		t.Error("Cargo.toml should be high severity")
 	}
@@ -317,8 +317,8 @@ func TestIndentationWhitespace(t *testing.T) {
 
 func TestLogicConflict_Renames(t *testing.T) {
 	c := &Conflict{
-		FilePath: "util.js",
-		OurLines: []string{"const calculateTotal = (price, tax) => price * tax;"},
+		FilePath:   "util.js",
+		OurLines:   []string{"const calculateTotal = (price, tax) => price * tax;"},
 		TheirLines: []string{"const getFullAmount = (val, rate) => val * rate;"},
 	}
 	Classify(c)
@@ -329,9 +329,9 @@ func TestLogicConflict_Renames(t *testing.T) {
 
 func TestConflictedStructuredMerge(t *testing.T) {
 	c := &Conflict{
-		FilePath: "settings.json",
-		BaseLines: []string{"{\"theme\": \"light\"}"},
-		OurLines: []string{"{\"theme\": \"dark\"}"},
+		FilePath:   "settings.json",
+		BaseLines:  []string{"{\"theme\": \"light\"}"},
+		OurLines:   []string{"{\"theme\": \"dark\"}"},
 		TheirLines: []string{"{\"theme\": \"high-contrast\"}"},
 	}
 	Classify(c)

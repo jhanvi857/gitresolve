@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -82,21 +83,20 @@ func MergeJSON(base, ours, theirs []byte) (StructuredMergeResult, error) {
 }
 
 func MergeYAML(base, ours, theirs []byte) (StructuredMergeResult, error) {
-	var baseMap map[string]interface{}
-	var oursMap map[string]interface{}
-	var theirsMap map[string]interface{}
-
-	if err := yaml.Unmarshal(base, &baseMap); err != nil {
+	baseVal, err := parseYAMLAny(base)
+	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeYAML: parsing base: %w", err)
 	}
-	if err := yaml.Unmarshal(ours, &oursMap); err != nil {
+	oursVal, err := parseYAMLAny(ours)
+	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeYAML: parsing ours: %w", err)
 	}
-	if err := yaml.Unmarshal(theirs, &theirsMap); err != nil {
+	theirsVal, err := parseYAMLAny(theirs)
+	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeYAML: parsing theirs: %w", err)
 	}
 
-	merged, conflicts := mergeMap(baseMap, oursMap, theirsMap)
+	merged, conflicts := mergeAny("<root>", baseVal, oursVal, theirsVal)
 	output, err := yaml.Marshal(merged)
 	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeYAML: marshaling result: %w", err)
@@ -110,17 +110,16 @@ func MergeYAML(base, ours, theirs []byte) (StructuredMergeResult, error) {
 }
 
 func MergeTOML(base, ours, theirs []byte) (StructuredMergeResult, error) {
-	var baseMap map[string]interface{}
-	var oursMap map[string]interface{}
-	var theirsMap map[string]interface{}
-
-	if err := toml.Unmarshal(base, &baseMap); err != nil {
+	baseMap, err := parseTOMLDocument(base)
+	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: parsing base: %w", err)
 	}
-	if err := toml.Unmarshal(ours, &oursMap); err != nil {
+	oursMap, err := parseTOMLDocument(ours)
+	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: parsing ours: %w", err)
 	}
-	if err := toml.Unmarshal(theirs, &theirsMap); err != nil {
+	theirsMap, err := parseTOMLDocument(theirs)
+	if err != nil {
 		return StructuredMergeResult{}, fmt.Errorf("MergeTOML: parsing theirs: %w", err)
 	}
 
@@ -155,6 +154,36 @@ func mergeMap(base, ours, theirs map[string]interface{}) (map[string]interface{}
 		baseVal, baseExists := base[key]
 		ourVal, ourExists := ours[key]
 		theirVal, theirExists := theirs[key]
+
+		if !baseExists && ourExists && theirExists {
+			if valuesEqual(ourVal, theirVal) {
+				result[key] = ourVal
+				continue
+			}
+			if ourMap, ok := toStringMap(ourVal); ok {
+				if theirMap, ok := toStringMap(theirVal); ok {
+					nestedMerged, nestedConflicts := mergeMap(make(map[string]interface{}), ourMap, theirMap)
+					result[key] = nestedMerged
+					conflicts = append(conflicts, nestedConflicts...)
+					continue
+				}
+			}
+			if ourArr, ok := toInterfaceSlice(ourVal); ok {
+				if theirArr, ok := toInterfaceSlice(theirVal); ok {
+					nestedMerged, nestedConflicts := mergeArray(nil, ourArr, theirArr, key)
+					result[key] = nestedMerged
+					conflicts = append(conflicts, nestedConflicts...)
+					continue
+				}
+			}
+			conflicts = append(conflicts, StructuredConflict{
+				Key:        key,
+				BaseValue:  nil,
+				OurValue:   ourVal,
+				TheirValue: theirVal,
+			})
+			continue
+		}
 
 		// Case 1: Added in ours only
 		if ourExists && !baseExists && !theirExists {
@@ -257,10 +286,72 @@ func mergeMap(base, ours, theirs map[string]interface{}) (map[string]interface{}
 	return result, conflicts
 }
 
+func mergeAny(key string, base, ours, theirs interface{}) (interface{}, []StructuredConflict) {
+	oursMap, oursIsMap := toStringMap(ours)
+	theirsMap, theirsIsMap := toStringMap(theirs)
+	if oursIsMap && theirsIsMap {
+		baseMap, baseIsMap := toStringMap(base)
+		if !baseIsMap {
+			baseMap = make(map[string]interface{})
+		}
+		merged, conflicts := mergeMap(baseMap, oursMap, theirsMap)
+		return merged, conflicts
+	}
+
+	oursArr, oursIsArr := toInterfaceSlice(ours)
+	theirsArr, theirsIsArr := toInterfaceSlice(theirs)
+	if oursIsArr && theirsIsArr {
+		baseArr, baseIsArr := toInterfaceSlice(base)
+		if !baseIsArr {
+			baseArr = nil
+		}
+		merged, conflicts := mergeArray(baseArr, oursArr, theirsArr, key)
+		return merged, conflicts
+	}
+
+	if valuesEqual(ours, theirs) {
+		return ours, nil
+	}
+	if valuesEqual(ours, base) {
+		return theirs, nil
+	}
+	if valuesEqual(theirs, base) {
+		return ours, nil
+	}
+
+	return nil, []StructuredConflict{{
+		Key:        key,
+		BaseValue:  base,
+		OurValue:   ours,
+		TheirValue: theirs,
+	}}
+}
+
 func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []StructuredConflict) {
 	// If identical, return either
 	if valuesEqual(ours, theirs) {
 		return ours, nil
+	}
+
+	if base == nil {
+		seen := make([]interface{}, 0, len(ours)+len(theirs))
+		appendUnique := func(arr []interface{}) {
+			for _, v := range arr {
+				exists := false
+				for _, seenV := range seen {
+					if valuesEqual(seenV, v) {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					seen = append(seen, v)
+				}
+			}
+		}
+		appendUnique(ours)
+		appendUnique(theirs)
+		return seen, nil
 	}
 
 	// Semantic merge: combine additions and deletions
@@ -311,6 +402,131 @@ func mergeArray(base, ours, theirs []interface{}, key string) ([]interface{}, []
 	}
 
 	return result, nil
+}
+
+func parseYAMLAny(data []byte) (interface{}, error) {
+	if len(strings.TrimSpace(string(data))) == 0 {
+		return nil, nil
+	}
+	var v interface{}
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return normalizeYAMLValue(v), nil
+}
+
+func normalizeYAMLValue(v interface{}) interface{} {
+	switch typed := v.(type) {
+	case map[string]interface{}:
+		result := make(map[string]interface{}, len(typed))
+		for k, val := range typed {
+			result[k] = normalizeYAMLValue(val)
+		}
+		return result
+	case map[interface{}]interface{}:
+		result := make(map[string]interface{}, len(typed))
+		for k, val := range typed {
+			result[fmt.Sprint(k)] = normalizeYAMLValue(val)
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, 0, len(typed))
+		for _, val := range typed {
+			result = append(result, normalizeYAMLValue(val))
+		}
+		return result
+	default:
+		return v
+	}
+}
+
+func toStringMap(v interface{}) (map[string]interface{}, bool) {
+	if v == nil {
+		return nil, false
+	}
+	switch typed := v.(type) {
+	case map[string]interface{}:
+		return typed, true
+	case map[interface{}]interface{}:
+		converted := normalizeYAMLValue(typed)
+		mapped, ok := converted.(map[string]interface{})
+		return mapped, ok
+	default:
+		return nil, false
+	}
+}
+
+func toInterfaceSlice(v interface{}) ([]interface{}, bool) {
+	if v == nil {
+		return nil, false
+	}
+	typed, ok := v.([]interface{})
+	return typed, ok
+}
+
+func parseTOMLDocument(data []byte) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" {
+		return result, nil
+	}
+	if err := toml.Unmarshal(data, &result); err == nil {
+		return result, nil
+	}
+
+	// Fallback for snippet-like TOML chunks that are not full documents.
+	parsed := parseSimpleTOMLMap(trimmed)
+	if len(parsed) == 0 {
+		return nil, fmt.Errorf("unsupported TOML snippet")
+	}
+	return parsed, nil
+}
+
+func parseSimpleTOMLMap(content string) map[string]interface{} {
+	result := make(map[string]interface{})
+	section := ""
+	for _, raw := range strings.Split(content, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "["), "]"))
+			continue
+		}
+		if !strings.Contains(line, "=") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if idx := strings.Index(value, "#"); idx >= 0 {
+			value = strings.TrimSpace(value[:idx])
+		}
+		if key == "" || value == "" {
+			continue
+		}
+		fullKey := key
+		if section != "" {
+			fullKey = section + "." + key
+		}
+		result[fullKey] = value
+	}
+
+	if len(result) > 0 {
+		ordered := make([]string, 0, len(result))
+		for k := range result {
+			ordered = append(ordered, k)
+		}
+		sort.Strings(ordered)
+		normalized := make(map[string]interface{}, len(result))
+		for _, k := range ordered {
+			normalized[k] = result[k]
+		}
+		return normalized
+	}
+
+	return result
 }
 
 func valuesEqual(a, b interface{}) bool {

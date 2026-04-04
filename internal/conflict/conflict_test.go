@@ -1,6 +1,7 @@
 package conflict
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -66,7 +67,10 @@ func TestClassifierAndAutoResolve_Imports(t *testing.T) {
 		t.Error("AutoResolve failed")
 	}
 
-	if c.Resolution != "import \"fmt\"\nimport \"net/http\"\nimport \"os\"" {
+	if !strings.HasPrefix(c.Resolution, "import (") ||
+		!strings.Contains(c.Resolution, "\"fmt\"") ||
+		!strings.Contains(c.Resolution, "\"net/http\"") ||
+		!strings.Contains(c.Resolution, "\"os\"") {
 		t.Errorf("Imports did not merge correctly. Got: %v", c.Resolution)
 	}
 }

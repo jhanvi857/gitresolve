@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/jhanvi857/gitresolve/internal/analysis"
@@ -67,7 +68,17 @@ func AutoResolve(c *Conflict, opts Options) bool {
 			}
 		}
 
-		merged := mergeImports(c.OurLines, c.TheirLines)
+		var merged []string
+		if strings.EqualFold(filepath.Ext(c.FilePath), ".go") {
+			merged = mergeGoImports(c.OurLines, c.TheirLines)
+		} else {
+			merged = mergeImports(c.OurLines, c.TheirLines)
+		}
+		if len(merged) == 0 {
+			c.ManualReason = "could not produce a valid merged import block"
+			c.SuggestHint = "retry with --strategy ours|theirs|both"
+			return false
+		}
 		if !importBlockParses(c.FilePath, merged) {
 			c.ManualReason = "merged import block failed syntax parse-check"
 			c.SuggestHint = "retry with --strategy ours|theirs|both"
@@ -180,6 +191,104 @@ func importBlockParses(filePath string, merged []string) bool {
 	}
 
 	return true
+}
+
+func mergeGoImports(ours, theirs []string) []string {
+	specs := make(map[string]struct{})
+	malformed := false
+
+	extract := func(lines []string) {
+		inBlock := false
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "//") {
+				continue
+			}
+
+			if strings.HasPrefix(trimmed, "import ") {
+				rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "import"))
+				if rest == "(" {
+					inBlock = true
+					continue
+				}
+				if rest == ")" {
+					malformed = true
+					continue
+				}
+				if spec := normalizeGoImportSpec(rest); spec != "" {
+					specs[spec] = struct{}{}
+				} else {
+					malformed = true
+				}
+				continue
+			}
+
+			if inBlock {
+				if trimmed == ")" {
+					inBlock = false
+					continue
+				}
+				if spec := normalizeGoImportSpec(trimmed); spec != "" {
+					specs[spec] = struct{}{}
+				} else {
+					malformed = true
+				}
+				continue
+			}
+
+			if strings.Contains(trimmed, "\"") {
+				// Quoted import-like spec outside import context indicates malformed fragment.
+				malformed = true
+			}
+		}
+	}
+
+	extract(ours)
+	extract(theirs)
+
+	if malformed || len(specs) == 0 {
+		return nil
+	}
+
+	ordered := make([]string, 0, len(specs))
+	for s := range specs {
+		ordered = append(ordered, s)
+	}
+	sort.Strings(ordered)
+
+	result := []string{"import ("}
+	for _, spec := range ordered {
+		result = append(result, "\t"+spec)
+	}
+	result = append(result, ")")
+	return result
+}
+
+func normalizeGoImportSpec(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if idx := strings.Index(raw, "//"); idx >= 0 {
+		raw = strings.TrimSpace(raw[:idx])
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "(" || raw == ")" {
+		return ""
+	}
+
+	firstQuote := strings.Index(raw, "\"")
+	lastQuote := strings.LastIndex(raw, "\"")
+	if firstQuote < 0 || lastQuote <= firstQuote {
+		return ""
+	}
+
+	alias := strings.TrimSpace(raw[:firstQuote])
+	path := strings.TrimSpace(raw[firstQuote : lastQuote+1])
+	if alias == "" {
+		return path
+	}
+	return alias + " " + path
 }
 
 func mergeImports(ours, theirs []string) []string {
