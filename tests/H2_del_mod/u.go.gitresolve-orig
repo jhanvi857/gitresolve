@@ -1,0 +1,6 @@
+package u
+<<<<<<< HEAD
+=======
+func O(){println("m")}
+>>>>>>> theirs
+func K(){}

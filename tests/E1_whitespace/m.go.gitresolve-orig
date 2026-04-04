@@ -1,0 +1,8 @@
+package m
+
+<<<<<<< HEAD
+func m(){f.P("h")   }
+=======
+
+func m(){f.P("h")}
+>>>>>>> theirs
