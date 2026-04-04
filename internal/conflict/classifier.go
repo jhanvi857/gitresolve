@@ -7,6 +7,11 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/analysis"
 )
 
+const (
+	AutoResolveConfidenceThreshold = 0.80
+	GuidedChoiceConfidenceFloor    = 0.55
+)
+
 func Classify(c *Conflict) {
 	// rule 1: whitespace only
 	// strip all whitespace from both sides and compare
@@ -14,6 +19,7 @@ func Classify(c *Conflict) {
 	if isWhitespaceOnly(c.OurLines, c.TheirLines) {
 		c.Type = TypeWhitespace
 		c.Severity = SeverityTrivial
+		c.Confidence = 0.99
 		c.CanAutoResolve = true
 		return
 	}
@@ -23,6 +29,7 @@ func Classify(c *Conflict) {
 	if linesIdentical(c.OurLines, c.TheirLines) {
 		c.Type = TypeIdentical
 		c.Severity = SeverityTrivial
+		c.Confidence = 0.99
 		c.CanAutoResolve = true
 		return
 	}
@@ -32,9 +39,15 @@ func Classify(c *Conflict) {
 	if isImportConflict(c.FilePath, c.OurLines, c.TheirLines) {
 		c.Type = TypeImport
 		c.Severity = SeverityLow
+		c.Confidence = 0.84
+		if analysis.IsCriticalFile(c.FilePath) {
+			c.Severity = SeverityHigh
+			c.Confidence = 0.82
+		}
 
 		if containsComplexImports(c.FilePath, c.OurLines, c.TheirLines) {
 			c.Severity = SeverityMedium
+			c.Confidence = 0.48
 			c.CanAutoResolve = false // Fallback to manual for complex python/java imports
 		} else {
 			c.CanAutoResolve = true
@@ -48,9 +61,11 @@ func Classify(c *Conflict) {
 		c.Type = TypeStructured
 		if analysis.IsCriticalFile(c.FilePath) {
 			c.Severity = SeverityHigh
+			c.Confidence = 0.83
 			c.CanAutoResolve = true // Allow structured merger to attempt safe resolution
 		} else {
 			c.Severity = SeverityLow
+			c.Confidence = 0.82
 			c.CanAutoResolve = true
 		}
 		return
@@ -62,6 +77,7 @@ func Classify(c *Conflict) {
 	if isDeleteModify(c.OurLines, c.TheirLines) {
 		c.Type = TypeDeleteModify
 		c.Severity = SeverityCritical
+		c.Confidence = 0.10
 		c.CanAutoResolve = false
 		return
 	}
@@ -71,6 +87,7 @@ func Classify(c *Conflict) {
 	if isSignatureChange(c.FilePath, c.OurLines, c.TheirLines) {
 		c.Type = TypeSignature
 		c.Severity = SeverityHigh
+		c.Confidence = 0.20
 		c.CanAutoResolve = false
 		return
 	}
@@ -80,6 +97,7 @@ func Classify(c *Conflict) {
 	if isSensitivePath(c.FilePath) {
 		c.Type = TypeLogic
 		c.Severity = SeverityCritical
+		c.Confidence = 0.12
 		c.CanAutoResolve = false
 		return
 	}
@@ -88,7 +106,8 @@ func Classify(c *Conflict) {
 	if analysis.IsCriticalFile(c.FilePath) {
 		c.Type = TypeLogic
 		c.Severity = SeverityHigh
-		c.CanAutoResolve = true
+		c.Confidence = 0.58
+		c.CanAutoResolve = false
 		return
 	}
 
@@ -96,6 +115,7 @@ func Classify(c *Conflict) {
 	if isScalarChange(c.OurLines, c.TheirLines) {
 		c.Type = TypeScalar
 		c.Severity = SeverityMedium
+		c.Confidence = 0.58
 		c.CanAutoResolve = false
 		return
 	}
@@ -103,7 +123,16 @@ func Classify(c *Conflict) {
 	// default: logic conflict, medium severity, needs human review
 	c.Type = TypeLogic
 	c.Severity = SeverityMedium
+	c.Confidence = 0.50
 	c.CanAutoResolve = false
+}
+
+func ShouldAutoApply(c *Conflict) bool {
+	return c.CanAutoResolve && c.Confidence >= AutoResolveConfidenceThreshold
+}
+
+func NeedsGuidedChoice(c *Conflict) bool {
+	return !ShouldAutoApply(c) && c.Confidence >= GuidedChoiceConfidenceFloor
 }
 
 func isScalarChange(ours, theirs []string) bool {

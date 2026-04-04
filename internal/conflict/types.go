@@ -46,6 +46,9 @@ type Conflict struct {
 	BaseLines      []string
 	Type           ConflictType
 	Severity       Severity
+	Confidence     float64
 	CanAutoResolve bool
 	Resolution     string
+	ManualReason   string
+	SuggestHint    string
 }
