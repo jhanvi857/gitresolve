@@ -1,4 +1,7 @@
 # gitresolve
+<p align="center">
+  <img src="documentation/public/logo.png" width="240" alt="gitresolve logo">
+</p>
 
 A locally executed Git merge conflict solver built with support for structured data and syntax-aware analysis.
 

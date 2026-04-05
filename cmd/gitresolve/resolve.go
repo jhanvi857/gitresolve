@@ -42,7 +42,6 @@ var resolveCmd = &cobra.Command{
 		repoPath := "."
 		files, err := git.ConflictedFiles(r)
 		if err != nil {
-			// fallback: scan for markers in any files if index is clean (e.g. accidentally already staged)
 			fmt.Println("No unmerged files in index. Scanning for mis-staged markers...")
 			files, _ = git.ScanForMarkers(repoPath)
 		}
