@@ -112,3 +112,162 @@ h1, h2, h3, h4 {
 .token-number { color: #bd93f9; }
 .token-severity-high { color: #ff5555; font-weight: 500; }
 .token-severity-low { color: #50fa7b; font-weight: 500; }
+/* Documentation Layout (DocsShell) */
+.site-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1a1a1a;
+  height: 64px;
+}
+
+.topbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.brand-mark {
+  color: #3b82f6;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.top-links-wrap {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.top-links {
+  display: flex;
+  gap: 24px;
+}
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover, .nav-link.is-active {
+  color: #fff;
+}
+
+.layout-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 48px;
+  flex: 1;
+}
+
+.sidebar {
+  padding-top: 48px;
+  position: sticky;
+  top: 64px;
+  height: calc(100vh - 64px);
+  border-right: 1px solid #1a1a1a;
+}
+
+.sidebar-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #444;
+  margin-bottom: 20px;
+}
+
+.sidebar-link {
+  display: block;
+  font-size: 14px;
+  padding: 8px 0;
+  color: #888;
+  transition: all 0.2s ease;
+}
+
+.sidebar-link:hover, .sidebar-link.is-active {
+  color: #fff;
+  transform: translateX(2px);
+}
+
+.content {
+  padding-top: 48px;
+  padding-bottom: 96px;
+  max-width: 800px;
+}
+
+.page-header {
+  margin-bottom: 48px;
+}
+
+.page-meta-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-meta-chip {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 8px;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 4px;
+}
+
+.page-meta-chip.muted {
+  color: #555;
+}
+
+.page-header h1 {
+  font-size: 42px;
+  margin-bottom: 16px;
+}
+
+/* Typography & prose */
+.prose-layout {
+  color: #999;
+  line-height: 1.7;
+}
+
+.prose-layout h2 {
+  color: #fff;
+  font-size: 20px;
+  margin-top: 48px;
+  margin-bottom: 24px;
+}
+
+.prose-layout p {
+  margin-bottom: 20px;
+}
+
+.prose-layout strong {
+  color: #fff;
+}

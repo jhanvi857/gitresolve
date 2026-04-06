@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import DocsShell from '@/components/DocsShell';
 
 const Step = ({ number, title, children }) => (
   <div className="relative pl-10 pb-12 last:pb-0 group text-sm">
@@ -31,16 +32,10 @@ const MacCodeWindow = ({ children, title }) => (
 
 export default function Installation() {
   return (
-    <div className="max-w-3xl mx-auto py-8">
-      <header className="mb-16">
-        <h1 className="text-3xl font-semibold tracking-tighter text-white mb-4">
-          Installation & Setup
-        </h1>
-        <p className="text-[17px] text-gray-500 leading-relaxed max-w-xl">
-          Get gitresolve up and running in your environment. Compiles to a single static binary for maximum portability.
-        </p>
-      </header>
-
+    <DocsShell 
+      title="Installation & Setup" 
+      subtitle="Get gitresolve up and running in your environment. Compiles to a single static binary for maximum portability."
+    >
       <div className="flex flex-col gap-2">
         <Step number="1" title="Prerequisites">
           <p className="mb-4">
@@ -97,6 +92,7 @@ export default function Installation() {
             Contact our engineering team for specialized compliance support.
           </p>
       </div>
-    </div>
+    </DocsShell>
   );
 }
+

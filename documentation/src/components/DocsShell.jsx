@@ -1,79 +1,23 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-const nav = [
-  { href: "/", label: "Overview" },
-  { href: "/architecture", label: "Architecture" },
-  { href: "/merge-flow", label: "Merge Flow" },
-  { href: "/commands", label: "Commands" },
-  { href: "/operations", label: "Operations" },
-];
+import PageTransition from "./PageTransition";
 
 export default function DocsShell({ title, subtitle, children }) {
-  const pathname = usePathname();
-
-  const isActive = (href) => pathname === href;
-
   return (
-    <div className="site-wrap">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <Link href="/" className="brand">
-            <span className="brand-mark">{"//"}</span>
-            <span>gitresolve docs</span>
-          </Link>
-          <div className="top-links-wrap">
-            <nav className="top-links" aria-label="Primary">
-              {nav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={isActive(item.href) ? "nav-link is-active" : "nav-link"}
-                  aria-current={isActive(item.href) ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-            <Link href="/get-started" className="top-cta">
-              Get Started
-            </Link>
-          </div>
+    <PageTransition>
+      <header className="page-header">
+        <div className="page-meta-row flex gap-3 mb-6">
+          <span className="page-meta-chip text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-[#111] border border-[#222] rounded text-[#888]">Docs v1.0.2</span>
+          <span className="page-meta-chip text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-[#111] border border-[#222] rounded text-blue-500/50">Determinism Guaranteed</span>
         </div>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-white mb-6 underline decoration-blue-500/10 decoration-8 underline-offset-[-2px]">{title}</h1>
+        {subtitle ? <p className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-2xl">{subtitle}</p> : null}
       </header>
-
-      <main className="layout-grid">
-        <aside className="sidebar" aria-label="Documentation sections">
-          <p className="sidebar-kicker">Docs Navigation</p>
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={isActive(item.href) ? "sidebar-link is-active" : "sidebar-link"}
-              aria-current={isActive(item.href) ? "page" : undefined}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/get-started" className="sidebar-link sidebar-link-cta">
-            Get Started
-          </Link>
-        </aside>
-
-        <article className="content doc-page">
-          <header className="page-header">
-            <div className="page-meta-row">
-              <span className="page-meta-chip">Documentation</span>
-              <span className="page-meta-chip muted">Core: gitresolve</span>
-            </div>
-            <h1>{title}</h1>
-            {subtitle ? <p>{subtitle}</p> : null}
-          </header>
-          {children}
-        </article>
-      </main>
-    </div>
+      
+      <div className="mt-16 prose-layout font-inter text-[#999] leading-relaxed text-[16px]">
+        {children}
+      </div>
+    </PageTransition>
   );
 }
+
