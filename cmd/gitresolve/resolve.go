@@ -66,11 +66,11 @@ var resolveCmd = &cobra.Command{
 			}
 		}
 
-		resolvedFiles := 0
 		autoResolved := 0
-		manualRequired := 0
-		criticalConflicts := 0
-		hadHardFailure := false
+		interactiveResolved := 0
+		validationFailed := 0
+		filesUpdated := 0
+		var failedFiles []string
 
 		for _, file := range files {
 			if resolveFileName != "" && file != resolveFileName {
@@ -84,7 +84,6 @@ var resolveCmd = &cobra.Command{
 			}
 
 			conflicts := conflict.ParseFile(file, content)
-			// we no longer skip if no markers found; we still want to resolve/stage unmerged files
 
 			if !resolveDryRun {
 				if err := safety.PreserveOriginal(file); err != nil {
@@ -93,12 +92,13 @@ var resolveCmd = &cobra.Command{
 				}
 			}
 
+			fileValidationFailed := false
 			for _, c := range conflicts {
 				conflict.Classify(c)
+				isAuto := false
 				if conflict.ShouldAutoApply(c) {
-					autoResolved++
+					isAuto = true
 				} else {
-					manualRequired++
 					if conflict.NeedsGuidedChoice(c) {
 						fmt.Printf("Guided choice: %s L%d-%d [confidence=%.2f]. Suggested strategy: ours|theirs|both\n", file, c.StartLine, c.EndLine, c.Confidence)
 					}
@@ -108,28 +108,44 @@ var resolveCmd = &cobra.Command{
 					if c.SuggestHint != "" {
 						fmt.Printf("  hint: %s\n", c.SuggestHint)
 					}
-					if c.Severity == conflict.SeverityCritical {
-						criticalConflicts++
-					}
 				}
 
 				opts := conflict.ResolveOptions{
 					NonInteractive: resolveNonInteractive,
 					Timeout:        resolveTimeout,
 				}
-				if err := conflict.Resolve(c, strategy, opts); err != nil {
-					fmt.Printf("Resolve failed for %s: %v\n", file, err)
+				
+				resolveErr := conflict.Resolve(c, strategy, opts)
+				if resolveErr != nil {
+					if _, ok := resolveErr.(*conflict.VerificationError); ok {
+						validationFailed++
+						failedFiles = append(failedFiles, file)
+						fileValidationFailed = true
+						break // Stop this file as per interactive prompt fix
+					}
+					fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
 					if resolveNonInteractive {
 						os.Exit(1)
 					}
 					continue
 				}
+
+				if isAuto {
+					autoResolved++
+				} else if strategy == conflict.StrategyInteractive {
+					interactiveResolved++
+				}
+			}
+
+			if fileValidationFailed {
+				continue
 			}
 
 			newContent := conflict.CompileResolution(content, conflicts)
 			if err := conflict.Verify(file, newContent); err != nil {
 				fmt.Printf("Verification failed for %s: %v\n", file, err)
-				hadHardFailure = true
+				validationFailed++
+				failedFiles = append(failedFiles, file)
 				if resolveNonInteractive {
 					os.Exit(1)
 				}
@@ -139,11 +155,12 @@ var resolveCmd = &cobra.Command{
 			if err := writer.Write(file, []byte(newContent)); err != nil {
 				if resolveDryRun && errors.Is(err, gserrors.ErrDryRun) {
 					fmt.Printf("[dry-run] would resolve %s using strategy '%s'\n", file, resolveStrategy)
-					resolvedFiles++
+					filesUpdated++
 					continue
 				}
 				fmt.Printf("Error writing %s: %v\n", file, err)
-				hadHardFailure = true
+				validationFailed++
+				failedFiles = append(failedFiles, file)
 				if resolveNonInteractive {
 					os.Exit(1)
 				}
@@ -163,26 +180,24 @@ var resolveCmd = &cobra.Command{
 			}
 
 			fmt.Printf("Resolved %s using strategy '%s'\n", file, resolveStrategy)
-			resolvedFiles++
+			filesUpdated++
 		}
 
-		if resolveFileName != "" && resolvedFiles == 0 {
+		if resolveFileName != "" && filesUpdated == 0 && validationFailed == 0 {
 			fmt.Printf("No conflicted file matched '%s'.\n", resolveFileName)
 		}
 
-		if resolveDryRun {
-			fmt.Printf("\nDry-run complete. Files that would be resolved: %d\n", resolvedFiles)
-		} else {
-			fmt.Printf("\nResolve complete. Summary:\n")
-			fmt.Printf("  %d blocks auto-resolved\n", autoResolved)
-			fmt.Printf("  %d blocks required manual input\n", manualRequired)
-			if criticalConflicts > 0 {
-				fmt.Printf("  %d critical conflicts handled\n", criticalConflicts)
-			}
-			fmt.Printf("Total files updated: %d\n", resolvedFiles)
-		}
+		fmt.Printf("\nResolve complete. Summary:\n")
+		fmt.Printf("  auto_resolved: %d\n", autoResolved)
+		fmt.Printf("  interactive_resolved: %d\n", interactiveResolved)
+		fmt.Printf("  validation_failed: %d\n", validationFailed)
+		fmt.Printf("  files_updated: %d\n", filesUpdated)
 
-		if hadHardFailure {
+		if validationFailed > 0 {
+			fmt.Println("\nFiles with validation failures:")
+			for _, f := range failedFiles {
+				fmt.Printf("  - %s\n", f)
+			}
 			os.Exit(1)
 		}
 	},
@@ -203,7 +218,7 @@ func parseStrategy(v string) (conflict.Strategy, error) {
 	}
 }
 
-func storeConflict(repoPath, file string, c *conflict.Conflict, strategy string) store.ConflictRecord {
+func storeConflict(repoPath, file string, c *conflict.ConflictBlock, strategy string) store.ConflictRecord {
 	return store.ConflictRecord{
 		RepoPath:     repoPath,
 		FilePath:     file,

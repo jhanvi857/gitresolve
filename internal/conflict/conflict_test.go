@@ -6,14 +6,14 @@ import (
 )
 
 func TestClassifierAndAutoResolve_Whitespace(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "main.go",
-		OurLines: []string{
+		OursLines: []string{
 			"func main() {",
 			"    fmt.Println(\"hello\")",
 			"}",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"func main() {",
 			"\tfmt.Println(\"hello\")",
 			"}",
@@ -41,13 +41,13 @@ func TestClassifierAndAutoResolve_Whitespace(t *testing.T) {
 }
 
 func TestClassifierAndAutoResolve_Imports(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "api.go",
-		OurLines: []string{
+		OursLines: []string{
 			"import \"fmt\"",
 			"import \"net/http\"",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"import \"fmt\"",
 			"import \"os\"",
 		},
@@ -76,14 +76,14 @@ func TestClassifierAndAutoResolve_Imports(t *testing.T) {
 }
 
 func TestClassifier_LogicConflict(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "auth/login.go",
-		OurLines: []string{
+		OursLines: []string{
 			"if user.Valid() {",
 			"    login(user)",
 			"}",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"if user.IsActive() {",
 			"    generateToken(user)",
 			"}",

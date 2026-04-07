@@ -16,7 +16,7 @@ type Options struct {
 	NoAutoStructured bool
 }
 
-func AutoResolve(c *Conflict, opts Options) bool {
+func AutoResolve(c *ConflictBlock, opts Options) bool {
 	if !c.CanAutoResolve {
 		return false
 	}
@@ -30,8 +30,8 @@ func AutoResolve(c *Conflict, opts Options) bool {
 		}
 		ext := filepath.Ext(c.FilePath)
 		baseBytes := []byte(strings.Join(c.BaseLines, "\n"))
-		ourBytes := []byte(strings.Join(c.OurLines, "\n"))
-		theirBytes := []byte(strings.Join(c.TheirLines, "\n"))
+		ourBytes := []byte(strings.Join(c.OursLines, "\n"))
+		theirBytes := []byte(strings.Join(c.TheirsLines, "\n"))
 
 		var res analysis.StructuredMergeResult
 		var err error
@@ -56,7 +56,7 @@ func AutoResolve(c *Conflict, opts Options) bool {
 		c.SuggestHint = "resolve manually with --strategy ours|theirs|both"
 
 	case TypeWhitespace:
-		c.Resolution = strings.Join(c.OurLines, "\n")
+		c.Resolution = strings.Join(c.OursLines, "\n")
 		return true
 
 	case TypeImport:
@@ -70,9 +70,9 @@ func AutoResolve(c *Conflict, opts Options) bool {
 
 		var merged []string
 		if strings.EqualFold(filepath.Ext(c.FilePath), ".go") {
-			merged = mergeGoImports(c.OurLines, c.TheirLines)
+			merged = mergeGoImports(c.OursLines, c.TheirsLines)
 		} else {
-			merged = mergeImports(c.OurLines, c.TheirLines)
+			merged = mergeImports(c.OursLines, c.TheirsLines)
 		}
 		if len(merged) == 0 {
 			c.ManualReason = "could not produce a valid merged import block"
@@ -88,21 +88,21 @@ func AutoResolve(c *Conflict, opts Options) bool {
 		return true
 
 	case TypeIdentical:
-		c.Resolution = strings.Join(c.OurLines, "\n")
+		c.Resolution = strings.Join(c.OursLines, "\n")
 		return true
 	}
 
 	return false
 }
 
-func hasCriticalImportOverlap(c *Conflict) (bool, string) {
+func hasCriticalImportOverlap(c *ConflictBlock) (bool, string) {
 	if !strings.EqualFold(filepath.Base(c.FilePath), "go.mod") {
 		return false, ""
 	}
 
 	base := parseGoModRequires(c.BaseLines)
-	ours := parseGoModRequires(c.OurLines)
-	theirs := parseGoModRequires(c.TheirLines)
+	ours := parseGoModRequires(c.OursLines)
+	theirs := parseGoModRequires(c.TheirsLines)
 
 	keys := make(map[string]struct{})
 	for k := range ours {

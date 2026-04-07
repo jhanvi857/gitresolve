@@ -37,13 +37,15 @@ const (
 	SeverityCritical
 )
 
-type Conflict struct {
+type ConflictBlock struct {
 	FilePath       string
 	StartLine      int
 	EndLine        int
-	OurLines       []string
-	TheirLines     []string
+	OursLines      []string
+	TheirsLines    []string
 	BaseLines      []string
+	PreLines       []string
+	PostLines      []string
 	Type           ConflictType
 	Severity       Severity
 	Confidence     float64

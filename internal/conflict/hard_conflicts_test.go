@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestStructuredConflict_PackageJSON(t *testing.T) {
-	c := &Conflict{
+func TestStructuredConflictBlock_PackageJSON(t *testing.T) {
+	c := &ConflictBlock{
 		FilePath: "package.json",
 		BaseLines: []string{
 			"{",
@@ -18,7 +18,7 @@ func TestStructuredConflict_PackageJSON(t *testing.T) {
 			"  }",
 			"}",
 		},
-		OurLines: []string{
+		OursLines: []string{
 			"{",
 			"  \"name\": \"myapp\",",
 			"  \"version\": \"1.0.1\",",
@@ -27,7 +27,7 @@ func TestStructuredConflict_PackageJSON(t *testing.T) {
 			"  }",
 			"}",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"{",
 			"  \"name\": \"myapp\",",
 			"  \"version\": \"1.0.0\",",
@@ -60,22 +60,22 @@ func TestStructuredConflict_PackageJSON(t *testing.T) {
 		t.Errorf("AutoResolve failed to merge package.json correctly: %s", c.Resolution)
 	}
 
-	// Test the case where we force it but it has conflicting array edits (YAML example)
+	// Test the case where we force it but it has ConflictBlocking array edits (YAML example)
 }
 
-func TestStructuredConflict_ArrayAmbiguity(t *testing.T) {
-	c := &Conflict{
+func TestStructuredConflictBlock_ArrayAmbiguity(t *testing.T) {
+	c := &ConflictBlock{
 		FilePath: "config.yaml",
 		BaseLines: []string{
 			"servers:",
 			"  - host: db1",
 		},
-		OurLines: []string{
+		OursLines: []string{
 			"servers:",
 			"  - host: db1",
 			"  - host: db2",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"servers:",
 			"  - host: db1",
 			"  - host: db3",
@@ -94,12 +94,12 @@ func TestStructuredConflict_ArrayAmbiguity(t *testing.T) {
 }
 
 func TestSignatureChange_Go(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "main.go",
-		OurLines: []string{
+		OursLines: []string{
 			"func Process(ctx context.Context, data string) error {",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"func Process(data string, timeout int) {",
 		},
 	}
@@ -107,7 +107,7 @@ func TestSignatureChange_Go(t *testing.T) {
 	Classify(c)
 
 	if c.Type != TypeSignature {
-		t.Errorf("expected Signature conflict, got %v", c.Type)
+		t.Errorf("expected Signature ConflictBlock, got %v", c.Type)
 	}
 	if c.CanAutoResolve {
 		t.Error("signature changes must not be auto-resolved")
@@ -115,11 +115,11 @@ func TestSignatureChange_Go(t *testing.T) {
 }
 
 func TestNoAutoStructuredFlag(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath:       "data.json",
 		BaseLines:      []string{"{\"key\": \"base\"}"},
-		OurLines:       []string{"{\"key\": \"ours\"}"},
-		TheirLines:     []string{"{\"key\": \"base\"}"},
+		OursLines:       []string{"{\"key\": \"ours\"}"},
+		TheirsLines:     []string{"{\"key\": \"base\"}"},
 		CanAutoResolve: true, // Manually set for test
 		Type:           TypeStructured,
 	}
@@ -150,11 +150,11 @@ func TestValuesEqual(t *testing.T) {
 		t.Errorf("JSON marshal not deterministic for maps? %s != %s", aj, bj)
 	}
 }
-func TestTSXConflict(t *testing.T) {
-	c := &Conflict{
+func TestTSXConflictBlock(t *testing.T) {
+	c := &ConflictBlock{
 		FilePath:   "Component.tsx",
-		OurLines:   []string{"const App = () => <div className='foo'>{count}</div>;"},
-		TheirLines: []string{"const App = () => <div className='bar'>{total}</div>;"},
+		OursLines:   []string{"const App = () => <div className='foo'>{count}</div>;"},
+		TheirsLines: []string{"const App = () => <div className='bar'>{total}</div>;"},
 	}
 	Classify(c)
 	// JSX/TSX changes should be caught by logic/signature rules
@@ -164,7 +164,7 @@ func TestTSXConflict(t *testing.T) {
 }
 
 func TestNestedYAMLMerge(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "deploy.yaml",
 		BaseLines: []string{
 			"services:",
@@ -173,14 +173,14 @@ func TestNestedYAMLMerge(t *testing.T) {
 			"    env:",
 			"      DEBUG: \"false\"",
 		},
-		OurLines: []string{
+		OursLines: []string{
 			"services:",
 			"  api:",
 			"    image: v2",
 			"    env:",
 			"      DEBUG: \"false\"",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"services:",
 			"  api:",
 			"    image: v1",
@@ -199,20 +199,20 @@ func TestNestedYAMLMerge(t *testing.T) {
 	}
 }
 
-func TestGoModConflict(t *testing.T) {
-	c := &Conflict{
+func TestGoModConflictBlock(t *testing.T) {
+	c := &ConflictBlock{
 		FilePath: "go.mod",
 		BaseLines: []string{
 			"require (",
 			"    github.com/gin-gonic/gin v1.7.0",
 			")",
 		},
-		OurLines: []string{
+		OursLines: []string{
 			"require (",
 			"    github.com/gin-gonic/gin v1.8.0",
 			")",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"require (",
 			"    github.com/gin-gonic/gin v1.7.0",
 			"    github.com/spf13/cobra v1.4.0",
@@ -231,13 +231,13 @@ func TestGoModConflict(t *testing.T) {
 }
 
 func TestAliasedImports(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "main.go",
-		OurLines: []string{
+		OursLines: []string{
 			"import g \"github.com/go-git/go-git/v5\"",
 			"import \"fmt\"",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"import g \"github.com/go-git/go-git/v5\"",
 			"import \"os\"",
 		},
@@ -253,10 +253,10 @@ func TestAliasedImports(t *testing.T) {
 }
 
 func TestDeleteModifySensitive(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "internal/auth/provider.go",
-		OurLines: []string{}, // deleted
-		TheirLines: []string{
+		OursLines: []string{}, // deleted
+		TheirsLines: []string{
 			"func VerifyToken(token string) bool {",
 			"    return true",
 			"}",
@@ -269,19 +269,19 @@ func TestDeleteModifySensitive(t *testing.T) {
 }
 
 func TestTOMLNestedMerge(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "Cargo.toml",
 		BaseLines: []string{
 			"[package]",
 			"name = \"foo\"",
 			"version = \"0.1.0\"",
 		},
-		OurLines: []string{
+		OursLines: []string{
 			"[package]",
 			"name = \"foo\"",
 			"version = \"0.1.1\"",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"[package]",
 			"name = \"foo\"",
 			"version = \"0.1.0\"",
@@ -296,14 +296,14 @@ func TestTOMLNestedMerge(t *testing.T) {
 }
 
 func TestIndentationWhitespace(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "style.css",
-		OurLines: []string{
+		OursLines: []string{
 			".btn {",
 			"  color: red;",
 			"}",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			".btn {",
 			"\tcolor: red;",
 			"}",
@@ -315,11 +315,11 @@ func TestIndentationWhitespace(t *testing.T) {
 	}
 }
 
-func TestLogicConflict_Renames(t *testing.T) {
-	c := &Conflict{
+func TestLogicConflictBlock_Renames(t *testing.T) {
+	c := &ConflictBlock{
 		FilePath:   "util.js",
-		OurLines:   []string{"const calculateTotal = (price, tax) => price * tax;"},
-		TheirLines: []string{"const getFullAmount = (val, rate) => val * rate;"},
+		OursLines:   []string{"const calculateTotal = (price, tax) => price * tax;"},
+		TheirsLines: []string{"const getFullAmount = (val, rate) => val * rate;"},
 	}
 	Classify(c)
 	if c.CanAutoResolve {
@@ -327,12 +327,12 @@ func TestLogicConflict_Renames(t *testing.T) {
 	}
 }
 
-func TestConflictedStructuredMerge(t *testing.T) {
-	c := &Conflict{
+func TestConflictBlockedStructuredMerge(t *testing.T) {
+	c := &ConflictBlock{
 		FilePath:   "settings.json",
 		BaseLines:  []string{"{\"theme\": \"light\"}"},
-		OurLines:   []string{"{\"theme\": \"dark\"}"},
-		TheirLines: []string{"{\"theme\": \"high-contrast\"}"},
+		OursLines:   []string{"{\"theme\": \"dark\"}"},
+		TheirsLines: []string{"{\"theme\": \"high-contrast\"}"},
 	}
 	Classify(c)
 	resolved := AutoResolve(c, Options{})
@@ -342,14 +342,14 @@ func TestConflictedStructuredMerge(t *testing.T) {
 }
 
 func TestGoInterfaceChange(t *testing.T) {
-	c := &Conflict{
+	c := &ConflictBlock{
 		FilePath: "service.go",
-		OurLines: []string{
+		OursLines: []string{
 			"type Store interface {",
 			"    Get(id string) (Item, error)",
 			"}",
 		},
-		TheirLines: []string{
+		TheirsLines: []string{
 			"type Store interface {",
 			"    Get(id string) (Item, error)",
 			"    Save(item Item) error",

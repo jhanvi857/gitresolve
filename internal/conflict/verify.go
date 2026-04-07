@@ -11,87 +11,113 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Verifying checks that a resolved file is actually valid
+type VerificationError struct {
+	File   string
+	Reason string
+	Output string // the invalid content, for debugging
+}
+
+func (e *VerificationError) Error() string {
+	return fmt.Sprintf("verification failed for %s: %s", e.File, e.Reason)
+}
+
+// Verify checks that a resolved file is actually valid
 func Verify(filePath, content string) error {
-	if err := checkNoMarkers(content); err != nil {
+	// 1. Initial check: markers should not be present in TS/JS files specifically
+    // But usually we don't want them anywhere in a "resolved" file.
+    // Prompt says: "For .ts and .js files: check that conflict markers ... do not appear in the output string."
+	if err := checkNoMarkers(filePath, content); err != nil {
 		return err
 	}
+
 	if strings.HasSuffix(filePath, ".json") {
-		return verifyJSON(content)
+		if err := verifyJSON(filePath, content); err != nil {
+            return err
+        }
 	}
 	if strings.HasSuffix(filePath, ".yaml") || strings.HasSuffix(filePath, ".yml") {
-		return verifyYAML(content)
+		if err := verifyYAML(filePath, content); err != nil {
+            return err
+        }
 	}
 	if strings.HasSuffix(filePath, ".toml") {
-		return verifyTOML(content)
+		if err := verifyTOML(filePath, content); err != nil {
+            return err
+        }
 	}
 	if strings.HasSuffix(filePath, ".go") {
-		return verifyGo(content)
+		if err := verifyGo(filePath, content); err != nil {
+            return err
+        }
 	}
+    
+    // For ALL files, we should probably check if markers still exist if we consider the file "fully resolved".
+    // But if we are validating partial resolutions, we might want to skip this.
+    // The prompt implies this IS the final verification before write.
+
 	return nil
 }
 
-func hasMarkers(content string) bool {
-	for _, line := range strings.Split(content, "\n") {
+func checkNoMarkers(filePath, content string) error {
+	for i, line := range strings.Split(content, "\n") {
 		if strings.HasPrefix(line, "<<<<<<<") ||
 			strings.HasPrefix(line, ">>>>>>>") ||
 			strings.HasPrefix(line, "|||||||") ||
 			line == "=======" {
-			return true
-		}
-	}
-	return false
-}
-
-func checkNoMarkers(content string) error {
-	for i, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(line, "<<<<<<<") {
-			return fmt.Errorf("verify: conflict marker <<<<<<< found on line %d", i+1)
-		}
-		if strings.HasPrefix(line, ">>>>>>>") {
-			return fmt.Errorf("verify: conflict marker >>>>>>> found on line %d", i+1)
-		}
-		if strings.HasPrefix(line, "|||||||") {
-			return fmt.Errorf("verify: diff3 base marker ||||||| found on line %d", i+1)
-		}
-		if line == "=======" {
-			return fmt.Errorf("verify: conflict marker ======= found on line %d", i+1)
+			return &VerificationError{
+				File:   filePath,
+                Reason: fmt.Sprintf("conflict marker found on line %d", i+1),
+                Output: content,
+			}
 		}
 	}
 	return nil
 }
 
-// json.Unmarshal : Go's standard JSON parser. It takes a string and tries to parse it into a Go value. If the string is not valid JSON it returns an error describing exactly what is wrong.
-// var v interface{} : why interface? coz we don't care what the JSON contains. we just want to know if it parses successfully. interface{} accepts any valid JSON structure - object, array, string, number, anything.
-func verifyJSON(content string) error {
+func verifyJSON(filePath, content string) error {
 	var v interface{}
 	if err := json.Unmarshal([]byte(content), &v); err != nil {
-		return fmt.Errorf("verify: invalid JSON after resolution: %w", err)
+		return &VerificationError{
+            File: filePath,
+            Reason: fmt.Sprintf("invalid JSON: %v", err),
+            Output: content,
+        }
 	}
 	return nil
 }
 
-// same as json. but yaml is more indentation sensitive
-func verifyYAML(content string) error {
+func verifyYAML(filePath, content string) error {
 	var v interface{}
 	if err := yaml.Unmarshal([]byte(content), &v); err != nil {
-		return fmt.Errorf("verify: invalid YAML after resolution: %w", err)
+		return &VerificationError{
+            File: filePath,
+            Reason: fmt.Sprintf("invalid YAML: %v", err),
+            Output: content,
+        }
 	}
 	return nil
 }
 
-func verifyTOML(content string) error {
+func verifyTOML(filePath, content string) error {
 	var v map[string]interface{}
 	if err := toml.Unmarshal([]byte(content), &v); err != nil {
-		return fmt.Errorf("verify: invalid TOML after resolution: %w", err)
+		return &VerificationError{
+            File: filePath,
+            Reason: fmt.Sprintf("invalid TOML: %v", err),
+            Output: content,
+        }
 	}
 	return nil
 }
 
-func verifyGo(content string) error {
+func verifyGo(filePath, content string) error {
 	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, "resolved.go", content, parser.AllErrors); err != nil {
-		return fmt.Errorf("verify: invalid Go syntax after resolution: %w", err)
+	if _, err := parser.ParseFile(fset, filePath, content, parser.AllErrors); err != nil {
+		return &VerificationError{
+            File: filePath,
+            Reason: fmt.Sprintf("invalid Go syntax: %v", err),
+            Output: content,
+        }
 	}
 	return nil
 }

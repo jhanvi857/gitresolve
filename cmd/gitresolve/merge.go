@@ -53,7 +53,12 @@ var mergeCmd = &cobra.Command{
 
 		fmt.Printf("Scanning index. Found %d unmerged conflicts...\n", len(files))
 		writer := safety.NewWriter(dryRun)
-		hadHardFailure := false
+		
+		autoResolved := 0
+		interactiveResolved := 0 // remain 0 for merge command
+		validationFailed := 0
+		filesUpdated := 0
+		var failedFiles []string
 
 		for _, file := range files {
 			fmt.Printf("\n--- Processing %s ---\n", file)
@@ -72,7 +77,7 @@ var mergeCmd = &cobra.Command{
 			}
 
 			conflicts := conflict.ParseFile(file, content)
-			var autoResolvedCount int
+			var fileAutoResolved int
 
 			for _, c := range conflicts {
 				conflict.Classify(c)
@@ -81,7 +86,8 @@ var mergeCmd = &cobra.Command{
 						NoAutoStructured: noAutoStructured,
 					})
 					if resolved {
-						autoResolvedCount++
+						fileAutoResolved++
+						autoResolved++
 						if dbErr == nil {
 							_ = db.SaveConflict(store.ConflictRecord{
 								RepoPath:     repoPath,
@@ -93,12 +99,6 @@ var mergeCmd = &cobra.Command{
 						}
 					} else {
 						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
-						if c.ManualReason != "" {
-							fmt.Printf("   reason: %s\n", c.ManualReason)
-						}
-						if c.SuggestHint != "" {
-							fmt.Printf("   hint: %s\n", c.SuggestHint)
-						}
 						if dbErr == nil {
 							_ = db.SaveConflict(store.ConflictRecord{
 								RepoPath:     repoPath,
@@ -109,65 +109,48 @@ var mergeCmd = &cobra.Command{
 							})
 						}
 					}
-				} else {
-					if conflict.NeedsGuidedChoice(c) {
-						fmt.Printf(" > Guided choice needed [severity=%d confidence=%.2f type=%v] in %s. Suggested strategies: ours/theirs/both.\n", c.Severity, c.Confidence, c.Type, file)
-					} else {
-						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
-					}
-					if c.ManualReason != "" {
-						fmt.Printf("   reason: %s\n", c.ManualReason)
-					}
-					if c.SuggestHint != "" {
-						fmt.Printf("   hint: %s\n", c.SuggestHint)
-					}
-					if dbErr == nil {
-						_ = db.SaveConflict(store.ConflictRecord{
-							RepoPath:     repoPath,
-							FilePath:     file,
-							ConflictType: typeLabel(c.Type),
-							Severity:     severityLabel(c.Severity),
-							Strategy:     "manual-required",
-						})
-					}
 				}
 			}
 
-			if autoResolvedCount > 0 {
+			if fileAutoResolved > 0 {
 				newContent := conflict.CompileResolution(content, conflicts)
 				if err := conflict.Verify(file, newContent); err != nil {
-					fmt.Println("Error: Verification failed (hard stop for file):", err)
-					hadHardFailure = true
+					fmt.Println("Error: Verification failed:", err)
+					validationFailed++
+					failedFiles = append(failedFiles, file)
 					continue
 				}
 
-				err := writer.Write(file, []byte(newContent))
-				if err != nil {
+				if err := writer.Write(file, []byte(newContent)); err != nil {
 					if dryRun && errors.Is(err, gserrors.ErrDryRun) {
-						fmt.Printf(" > [dry-run] would apply auto-resolution to %s (%d/%d blocks).\n", file, autoResolvedCount, len(conflicts))
-					} else {
-						fmt.Println("Error: Atomic write failed:", err)
-						hadHardFailure = true
+						fmt.Printf(" > [dry-run] would apply auto-resolution to %s\n", file)
+						filesUpdated++
 						continue
 					}
+					fmt.Println("Error: Write failed:", err)
+					validationFailed++
+					failedFiles = append(failedFiles, file)
+					continue
 				}
 
-				if autoResolvedCount == len(conflicts) && !dryRun {
-					if err := git.MarkResolved(r, file); err != nil {
-						fmt.Printf("Warning: failed to stage %s: %v\n", file, err)
-					} else {
-						fmt.Printf(" > Successfully auto-resolved 100%% of conflicts in %s and staged.\n", file)
-					}
-				} else {
-					fmt.Printf(" > Auto-resolved %d of %d conflicts in %s. Manual review still required for remainder.\n", autoResolvedCount, len(conflicts), file)
+				if fileAutoResolved == len(conflicts) && !dryRun {
+					git.MarkResolved(r, file)
 				}
-			} else {
-				fmt.Printf(" > No safe resolutions could be applied to %s.\n", file)
+				filesUpdated++
 			}
 		}
 
-		fmt.Println("\nMerge scan complete.")
-		if hadHardFailure {
+		fmt.Printf("\nMerge complete. Summary:\n")
+		fmt.Printf("  auto_resolved: %d\n", autoResolved)
+		fmt.Printf("  interactive_resolved: %d\n", interactiveResolved)
+		fmt.Printf("  validation_failed: %d\n", validationFailed)
+		fmt.Printf("  files_updated: %d\n", filesUpdated)
+
+		if validationFailed > 0 {
+			fmt.Println("\nFiles with validation failures:")
+			for _, f := range failedFiles {
+				fmt.Printf("  - %s\n", f)
+			}
 			os.Exit(1)
 		}
 	},

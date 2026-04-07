@@ -22,17 +22,56 @@ const (
 	StrategyInteractive
 )
 
-func Resolve(c *Conflict, strategy Strategy, opts ResolveOptions) error {
+func Resolve(c *ConflictBlock, strategy Strategy, opts ResolveOptions) error {
+	applySelection := func(strat Strategy) (string, error) {
+		pre := strings.Join(c.PreLines, "\n")
+		if pre != "" {
+			pre += "\n"
+		}
+		post := strings.Join(c.PostLines, "\n")
+		if post != "" {
+			post = "\n" + post
+		}
+
+		switch strat {
+		case StrategyOurs:
+			c.Resolution = strings.Join(c.OursLines, "\n")
+			return pre + c.Resolution + post, nil
+
+		case StrategyTheirs:
+			c.Resolution = strings.Join(c.TheirsLines, "\n")
+			return pre + c.Resolution + post, nil
+
+		case StrategyBoth:
+			// check for closing braces if it's a Go file and we have function logic
+			if strings.HasSuffix(c.FilePath, ".go") && (c.Type == TypeLogic || c.Type == TypeSignature) {
+				ourHasBrace := false
+				if len(c.OursLines) > 0 {
+					ourHasBrace = strings.Contains(c.OursLines[len(c.OursLines)-1], "}")
+				}
+				theirHasBrace := false
+				if len(c.TheirsLines) > 0 {
+					theirHasBrace = strings.Contains(c.TheirsLines[len(c.TheirsLines)-1], "}")
+				}
+
+				if !ourHasBrace || !theirHasBrace {
+					c.CanAutoResolve = false
+					c.ManualReason = "incomplete function block detected, manual edit required"
+					return "", fmt.Errorf("Both: %s", c.ManualReason)
+				}
+			}
+
+			both := append(c.OursLines, c.TheirsLines...)
+			c.Resolution = strings.Join(both, "\n")
+			return pre + c.Resolution + post, nil
+		}
+		return "", fmt.Errorf("unknown selection strategy")
+	}
+
 	switch strategy {
-	case StrategyOurs:
-		c.Resolution = strings.Join(c.OurLines, "\n")
-
-	case StrategyTheirs:
-		c.Resolution = strings.Join(c.TheirLines, "\n")
-
-	case StrategyBoth:
-		both := append(c.OurLines, c.TheirLines...)
-		c.Resolution = strings.Join(both, "\n")
+	case StrategyOurs, StrategyTheirs, StrategyBoth:
+		_, err := applySelection(strategy)
+		return err
 
 	case StrategyInteractive:
 		if opts.NonInteractive {
@@ -41,14 +80,14 @@ func Resolve(c *Conflict, strategy Strategy, opts ResolveOptions) error {
 
 		if c.Type == TypeScalar {
 			fmt.Printf("\n[Scalar] %s (L%d-%d)\n", c.FilePath, c.StartLine, c.EndLine)
-			fmt.Printf(" [O]urs:   %s\n", strings.Join(c.OurLines, " "))
-			fmt.Printf(" [T]heirs: %s\n", strings.Join(c.TheirLines, " "))
+			fmt.Printf(" [O]urs:   %s\n", strings.Join(c.OursLines, " "))
+			fmt.Printf(" [T]heirs: %s\n", strings.Join(c.TheirsLines, " "))
 		} else {
 			fmt.Printf("\n--- Conflict in %s ---\n", c.FilePath)
 			fmt.Println("<<<<<<< OURS")
-			fmt.Println(strings.Join(c.OurLines, "\n"))
+			fmt.Println(strings.Join(c.OursLines, "\n"))
 			fmt.Println("=======")
-			fmt.Println(strings.Join(c.TheirLines, "\n"))
+			fmt.Println(strings.Join(c.TheirsLines, "\n"))
 			fmt.Println(">>>>>>> THEIRS")
 		}
 
@@ -71,8 +110,8 @@ func Resolve(c *Conflict, strategy Strategy, opts ResolveOptions) error {
 				// Proceed
 			case <-time.After(opts.Timeout):
 				fmt.Printf("\nTimeout reached (%s). Auto-selecting [T]heirs.\n", opts.Timeout.String())
-				c.Resolution = strings.Join(c.TheirLines, "\n")
-				return nil
+				_, err := applySelection(StrategyTheirs)
+				return err
 			}
 		} else {
 			input = <-inputChan
@@ -80,30 +119,42 @@ func Resolve(c *Conflict, strategy Strategy, opts ResolveOptions) error {
 
 		for {
 			input = strings.TrimSpace(strings.ToUpper(input))
-			
+			var strat Strategy
+			valid := true
 			if input == "O" || input == "OURS" {
-				c.Resolution = strings.Join(c.OurLines, "\n")
-				break
+				strat = StrategyOurs
 			} else if input == "T" || input == "THEIRS" {
-				c.Resolution = strings.Join(c.TheirLines, "\n")
-				break
+				strat = StrategyTheirs
 			} else if input == "B" || input == "BOTH" {
-				both := append(c.OurLines, c.TheirLines...)
-				c.Resolution = strings.Join(both, "\n")
-				break
+				strat = StrategyBoth
 			} else {
-				fmt.Println("Invalid option. Please press O, T, or B.")
-				// We don't loop correctly with the channel setup for retry on invalid input if timeout is used natively like this.
-				// For real use, we need the inner retry loop without a channel if no timeout, or just a simple block. Just block again:
-				reader := bufio.NewReader(os.Stdin)
-				fmt.Print("Select resolution [O]urs, [T]heirs, [B]oth : ")
-				input, _ = reader.ReadString('\n')
+				valid = false
 			}
+
+			if valid {
+				output, err := applySelection(strat)
+				if err != nil {
+					// Both check might fail
+					fmt.Printf("ERROR: %v\n", err)
+				} else {
+					// Run validation BEFORE write (well, the write is done in the caller, but we validate here as requested)
+					if vErr := Verify(c.FilePath, output); vErr != nil {
+						fmt.Println("Resolution produced invalid syntax. File left unchanged.")
+						fmt.Printf("Run: gitresolve resolve --file %s to retry this file.\n", c.FilePath)
+						return vErr // Return validation error to signal stopping this file
+					}
+					return nil
+				}
+			}
+
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Select resolution [O]urs, [T]heirs, [B]oth : ")
+			input, _ = reader.ReadString('\n')
 		}
 
 	default:
 		return fmt.Errorf("Resolve: unknown strategy %d", strategy)
 	}
 
-	return nil
+	// return nil
 }

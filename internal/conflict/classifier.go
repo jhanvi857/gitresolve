@@ -12,11 +12,11 @@ const (
 	GuidedChoiceConfidenceFloor    = 0.55
 )
 
-func Classify(c *Conflict) {
+func Classify(c *ConflictBlock) {
 	// rule 1: whitespace only
 	// strip all whitespace from both sides and compare
 	// if they are identical after stripping = whitespace conflict
-	if isWhitespaceOnly(c.OurLines, c.TheirLines) {
+	if isWhitespaceOnly(c.OursLines, c.TheirsLines) {
 		c.Type = TypeWhitespace
 		c.Severity = SeverityTrivial
 		c.Confidence = 0.99
@@ -26,7 +26,7 @@ func Classify(c *Conflict) {
 
 	// rule 2: both sides made identical changes
 	// this happens when two devs independently fix the same bug
-	if linesIdentical(c.OurLines, c.TheirLines) {
+	if linesIdentical(c.OursLines, c.TheirsLines) {
 		c.Type = TypeIdentical
 		c.Severity = SeverityTrivial
 		c.Confidence = 0.99
@@ -36,7 +36,7 @@ func Classify(c *Conflict) {
 
 	// rule 3: import block conflict
 	// all changed lines on both sides are import statements
-	if isImportConflict(c.FilePath, c.OurLines, c.TheirLines) {
+	if isImportConflict(c.FilePath, c.OursLines, c.TheirsLines) {
 		c.Type = TypeImport
 		c.Severity = SeverityLow
 		c.Confidence = 0.84
@@ -45,7 +45,7 @@ func Classify(c *Conflict) {
 			c.Confidence = 0.82
 		}
 
-		if containsComplexImports(c.FilePath, c.OurLines, c.TheirLines) {
+		if containsComplexImports(c.FilePath, c.OursLines, c.TheirsLines) {
 			c.Severity = SeverityMedium
 			c.Confidence = 0.48
 			c.CanAutoResolve = false // Fallback to manual for complex python/java imports
@@ -74,7 +74,7 @@ func Classify(c *Conflict) {
 	// rule 5: delete vs modify
 	// one side has no lines (deletion) other side has lines (modification)
 	// this is dangerous : someone deleted something the other person was using
-	if isDeleteModify(c.OurLines, c.TheirLines) {
+	if isDeleteModify(c.OursLines, c.TheirsLines) {
 		c.Type = TypeDeleteModify
 		c.Severity = SeverityCritical
 		c.Confidence = 0.10
@@ -84,7 +84,7 @@ func Classify(c *Conflict) {
 
 	// rule 6: function signature change
 	// check if lines contain function definition keywords
-	if isSignatureChange(c.FilePath, c.OurLines, c.TheirLines) {
+	if isSignatureChange(c.FilePath, c.OursLines, c.TheirsLines) {
 		c.Type = TypeSignature
 		c.Severity = SeverityHigh
 		c.Confidence = 0.20
@@ -112,7 +112,7 @@ func Classify(c *Conflict) {
 	}
 
 	// rule 8: scalar change (single line, non-critical, non-signature)
-	if isScalarChange(c.OurLines, c.TheirLines) {
+	if isScalarChange(c.OursLines, c.TheirsLines) {
 		c.Type = TypeScalar
 		c.Severity = SeverityMedium
 		c.Confidence = 0.58
@@ -127,11 +127,11 @@ func Classify(c *Conflict) {
 	c.CanAutoResolve = false
 }
 
-func ShouldAutoApply(c *Conflict) bool {
+func ShouldAutoApply(c *ConflictBlock) bool {
 	return c.CanAutoResolve && c.Confidence >= AutoResolveConfidenceThreshold
 }
 
-func NeedsGuidedChoice(c *Conflict) bool {
+func NeedsGuidedChoice(c *ConflictBlock) bool {
 	return !ShouldAutoApply(c) && c.Confidence >= GuidedChoiceConfidenceFloor
 }
 
