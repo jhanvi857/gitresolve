@@ -114,18 +114,22 @@ var resolveCmd = &cobra.Command{
 					NonInteractive: resolveNonInteractive,
 					Timeout:        resolveTimeout,
 				}
-				
 				resolveErr := conflict.Resolve(c, strategy, opts)
 				if resolveErr != nil {
-					if _, ok := resolveErr.(*conflict.VerificationError); ok {
-						validationFailed++
-						failedFiles = append(failedFiles, file)
-						fileValidationFailed = true
-						break // Stop this file as per interactive prompt fix
-					}
-					fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
-					if resolveNonInteractive {
-						os.Exit(1)
+					vErr, ok := resolveErr.(*conflict.VerificationError)
+					if ok {
+						if !vErr.IsMarkerErr {
+							// Real syntax error (parser failed)
+							validationFailed++
+							failedFiles = append(failedFiles, file)
+							fileValidationFailed = true
+						}
+						// If it was just a marker error, we continue silently because standard markers are expected in multi-conflict files.
+					} else {
+						fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
+						if resolveNonInteractive {
+							os.Exit(1)
+						}
 					}
 					continue
 				}

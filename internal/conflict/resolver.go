@@ -138,10 +138,17 @@ func Resolve(c *ConflictBlock, strategy Strategy, opts ResolveOptions) error {
 					fmt.Printf("ERROR: %v\n", err)
 				} else {
 					// Run validation BEFORE write (well, the write is done in the caller, but we validate here as requested)
-					if vErr := Verify(c.FilePath, output); vErr != nil {
+					if err := Verify(c.FilePath, output); err != nil {
+						vErr, ok := err.(*VerificationError)
+						if ok && vErr.IsMarkerErr {
+							// For files with multiple conflicts, the intermediate state will still have markers.
+							// We allow this to continue so other blocks can be resolved.
+							return nil
+						}
+						// Real syntax error (parsers failed)
 						fmt.Println("Resolution produced invalid syntax. File left unchanged.")
 						fmt.Printf("Run: gitresolve resolve --file %s to retry this file.\n", c.FilePath)
-						return vErr // Return validation error to signal stopping this file
+						return err
 					}
 					return nil
 				}
