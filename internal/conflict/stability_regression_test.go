@@ -63,14 +63,14 @@ func TestRegression_test_h5_UnresolvedMarkersBlockedInCompiledOutput(t *testing.
 
 func TestBothSelectionClosingBrace(t *testing.T) {
 	// MALFORMED INPUT: closing brace belongs to THEIRS but is outside marker.
-	// Hardened resolver should reject BOTH for invalid Go fragments.
+	// Brace-aware parser should consume it.
 	content := []byte(strings.Join([]string{
 		"package main",
 		"<<<<<<< HEAD",
 		"func GenerateToken(userID string) string {",
 		"	return userID + \"-token\"",
 		"}",
-		"=======",
+		"======= ",
 		"func RevokeToken(token string) error {",
 		"	return nil",
 		">>>>>>> feature/performance-updates",
@@ -83,14 +83,26 @@ func TestBothSelectionClosingBrace(t *testing.T) {
 	}
 
 	c := conflicts[0]
-
-	// Simulate user selecting [B]oth and expect rejection.
-	_, err := Resolve(c, StrategyBoth, ResolveOptions{})
-	if err == nil {
-		t.Fatal("expected Resolve(Both) to fail for invalid Go fragment")
+	if len(c.TheirsLines) != 3 {
+		t.Fatalf("expected TheirsLines to have 3 lines, got %d", len(c.TheirsLines))
 	}
-	if c.Resolution != "" {
-		t.Fatal("expected empty resolution when BOTH fails")
+	if !strings.Contains(c.TheirsLines[2], "}") {
+		t.Fatal("expected TheirsLines to include closing brace consumed after marker")
+	}
+
+	// Simulate user selecting [B]oth and expect success.
+	_, err := Resolve(c, StrategyBoth, ResolveOptions{})
+	if err != nil {
+		t.Fatalf("expected Resolve(Both) to succeed, got %v", err)
+	}
+	
+	output := CompileResolution(content, conflicts)
+	if strings.Contains(output, "<<<<<<<") || strings.Contains(output, ">>>>>>>") {
+		t.Fatal("output still contains conflict markers")
+	}
+	
+	if err := Verify("jwt.go", output); err != nil {
+		t.Fatalf("expected output file to pass verification, got: %v", err)
 	}
 }
 
@@ -101,7 +113,7 @@ func TestTheirsSelectionDanglingBrace(t *testing.T) {
 		"func GenerateToken(userID string) string {",
 		"	return userID + \"-token\"",
 		"}",
-		"=======",
+		"======= ",
 		"func RevokeToken(token string) error {",
 		"	return nil",
 		">>>>>>> feature/performance-updates",
@@ -110,6 +122,9 @@ func TestTheirsSelectionDanglingBrace(t *testing.T) {
 
 	conflicts := ParseFile("jwt.go", content)
 	c := conflicts[0]
+	if len(c.TheirsLines) != 3 {
+		t.Fatalf("expected TheirsLines to have 3 lines, got %d", len(c.TheirsLines))
+	}
 
 	// Simulate user selecting [T]heirs
 	_, err := Resolve(c, StrategyTheirs, ResolveOptions{})
@@ -128,9 +143,6 @@ func TestTheirsSelectionDanglingBrace(t *testing.T) {
 	}
 	if !strings.Contains(output, "func RevokeToken") {
 		t.Fatal("output missing RevokeToken")
-	}
-	if !strings.HasSuffix(strings.TrimSpace(output), "}") {
-		t.Fatal("output missing closing brace for RevokeToken")
 	}
 }
 

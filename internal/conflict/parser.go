@@ -44,6 +44,26 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 				cb.EndIndex = i
 				cb.EndLine = i + 1
 				foundEnd = true
+
+				// Brace-aware check for THEIRS block: if depth > 0 (more { than }),
+				// continue reading subsequent lines into TheirsLines until depth is zero.
+				depth := 0
+				for _, l := range cb.TheirsLines {
+					depth += strings.Count(l, "{") - strings.Count(l, "}")
+				}
+
+				if depth > 0 {
+					next := i + 1
+					for next < len(lines) && depth > 0 {
+						nextLine := lines[next]
+						cb.TheirsLines = append(cb.TheirsLines, nextLine)
+						depth += strings.Count(nextLine, "{") - strings.Count(nextLine, "}")
+						cb.EndIndex = next
+						cb.EndLine = next + 1
+						next++
+					}
+					i = next - 1 // Move outer loop cursor to the last consumed line
+				}
 				break
 			}
 
