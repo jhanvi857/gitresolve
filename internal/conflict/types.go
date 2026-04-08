@@ -41,6 +41,8 @@ type ConflictBlock struct {
 	FilePath       string
 	StartLine      int
 	EndLine        int
+	StartIndex     int
+	EndIndex       int
 	OursLines      []string
 	TheirsLines    []string
 	BaseLines      []string

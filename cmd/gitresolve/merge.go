@@ -53,7 +53,7 @@ var mergeCmd = &cobra.Command{
 
 		fmt.Printf("Scanning index. Found %d unmerged conflicts...\n", len(files))
 		writer := safety.NewWriter(dryRun)
-		
+
 		autoResolved := 0
 		interactiveResolved := 0 // remain 0 for merge command
 		validationFailed := 0
@@ -159,5 +159,6 @@ var mergeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(mergeCmd)
 	mergeCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would happen without writing")
+	mergeCmd.Flags().BoolVar(&dryRun, "dryrun", false, "alias for --dry-run")
 	mergeCmd.Flags().BoolVar(&noAutoStructured, "no-auto-structured", false, "disable auto-resolution for structured files (JSON/YAML/TOML)")
 }

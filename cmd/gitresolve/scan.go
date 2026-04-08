@@ -24,18 +24,24 @@ var scanCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Scanning for potential conflicts against %s...\n", targetBranch)
-
-		// Use "--" to prevent flag injection via branch names
-		if _, err := runGit("rev-parse", "--verify", "--", targetBranch); err != nil {
-			fmt.Printf("Scan failed: target ref '%s' not found (%v)\n", targetBranch, err)
+		if _, err := runGit("rev-parse", "-q", "--verify", "MERGE_HEAD"); err == nil {
+			fmt.Println("Merge in progress detected. Use `gitresolve status` or `gitresolve resolve` to complete current conflicts before pre-merge scanning.")
 			return
 		}
 
+		fmt.Printf("Scanning for potential conflicts against %s...\n", targetBranch)
+
+		resolvedTarget := targetBranch
+		// Use "--" to prevent flag injection via branch names
+		if _, err := runGit("rev-parse", "--verify", "--", targetBranch); err != nil {
+			fmt.Printf("Target ref '%s' not found. Falling back to HEAD.\n", targetBranch)
+			resolvedTarget = "HEAD"
+		}
+
 		// Use modern merge-tree which is more accurate and handles renames better
-		mergeTreeOut, err := runGit("merge-tree", "HEAD", targetBranch)
+		mergeTreeOut, err := runGit("merge-tree", "HEAD", resolvedTarget)
 		if err != nil {
-			fmt.Println("Scan failed: unable to run merge-tree:", err)
+			fmt.Printf("Scan failed: unable to run merge-tree for target '%s': %v\n", resolvedTarget, err)
 			return
 		}
 
@@ -52,7 +58,11 @@ var scanCmd = &cobra.Command{
 		}
 
 		if len(conflicts) == 0 {
-			fmt.Println("No potential conflicts found.")
+			if resolvedTarget == "HEAD" {
+				fmt.Println("No potential conflicts found (HEAD fallback baseline).")
+			} else {
+				fmt.Println("No potential conflicts found.")
+			}
 			fmt.Println("\nNote: scan may miss conflicts in binary files and low-similarity renames.")
 			fmt.Println("Always run `gitresolve status` after merging.")
 			return

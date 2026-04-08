@@ -11,6 +11,7 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -84,6 +85,10 @@ var resolveCmd = &cobra.Command{
 			}
 
 			conflicts := conflict.ParseFile(file, content)
+			logger.Debug(fmt.Sprintf("parsed %d conflict block(s) in %s", len(conflicts), file))
+			if len(conflicts) == 0 {
+				continue
+			}
 
 			if !resolveDryRun {
 				if err := safety.PreserveOriginal(file); err != nil {
@@ -93,7 +98,9 @@ var resolveCmd = &cobra.Command{
 			}
 
 			fileValidationFailed := false
+			fileSkipped := false
 			for _, c := range conflicts {
+				logger.Debug(fmt.Sprintf("conflict block parsed: file=%s start=%d end=%d ours=%d theirs=%d", file, c.StartLine, c.EndLine, len(c.OursLines), len(c.TheirsLines)))
 				conflict.Classify(c)
 				isAuto := false
 				if conflict.ShouldAutoApply(c) {
@@ -114,23 +121,22 @@ var resolveCmd = &cobra.Command{
 					NonInteractive: resolveNonInteractive,
 					Timeout:        resolveTimeout,
 				}
-				resolveErr := conflict.Resolve(c, strategy, opts)
+				result, resolveErr := conflict.Resolve(c, strategy, opts)
 				if resolveErr != nil {
-					vErr, ok := resolveErr.(*conflict.VerificationError)
-					if ok {
-						if !vErr.IsMarkerErr {
-							// Real syntax error (parser failed)
-							validationFailed++
-							failedFiles = append(failedFiles, file)
-							fileValidationFailed = true
-						}
-						// If it was just a marker error, we continue silently because standard markers are expected in multi-conflict files.
-					} else {
-						fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
-						if resolveNonInteractive {
-							os.Exit(1)
-						}
+					fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
+					logger.Debug(fmt.Sprintf("resolution failure: file=%s start=%d end=%d err=%v", file, c.StartLine, c.EndLine, resolveErr))
+					validationFailed++
+					failedFiles = append(failedFiles, file)
+					fileValidationFailed = true
+					if resolveNonInteractive {
+						os.Exit(1)
 					}
+					break
+				}
+
+				logger.Debug(fmt.Sprintf("resolution selected: file=%s start=%d end=%d choice=%s applied=%v", file, c.StartLine, c.EndLine, result.SelectedLabel, result.Applied))
+				if !result.Applied {
+					fileSkipped = true
 					continue
 				}
 
@@ -144,10 +150,25 @@ var resolveCmd = &cobra.Command{
 			if fileValidationFailed {
 				continue
 			}
+			if fileSkipped {
+				fmt.Printf("Skipped unresolved blocks in %s; leaving file unchanged.\n", file)
+				continue
+			}
 
 			newContent := conflict.CompileResolution(content, conflicts)
+			if err := conflict.EnsureNoConflictMarkers(file, newContent); err != nil {
+				fmt.Printf("Safety check failed for %s: %v\n", file, err)
+				validationFailed++
+				failedFiles = append(failedFiles, file)
+				logger.Debug(fmt.Sprintf("marker cleanup failed: file=%s err=%v", file, err))
+				if resolveNonInteractive {
+					os.Exit(1)
+				}
+				continue
+			}
 			if err := conflict.Verify(file, newContent); err != nil {
 				fmt.Printf("Verification failed for %s: %v\n", file, err)
+				logger.Debug(fmt.Sprintf("validation failure: file=%s err=%v", file, err))
 				validationFailed++
 				failedFiles = append(failedFiles, file)
 				if resolveNonInteractive {
@@ -163,6 +184,7 @@ var resolveCmd = &cobra.Command{
 					continue
 				}
 				fmt.Printf("Error writing %s: %v\n", file, err)
+				logger.Debug(fmt.Sprintf("write failure: file=%s err=%v", file, err))
 				validationFailed++
 				failedFiles = append(failedFiles, file)
 				if resolveNonInteractive {
@@ -237,6 +259,7 @@ func init() {
 	resolveCmd.Flags().StringVar(&resolveFileName, "file", "", "resolve a specific file")
 	resolveCmd.Flags().StringVar(&resolveStrategy, "strategy", "interactive", "resolve strategy: interactive|ours|theirs|both")
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dry-run", false, "show what would happen without writing")
+	resolveCmd.Flags().BoolVar(&resolveDryRun, "dryrun", false, "alias for --dry-run")
 	resolveCmd.Flags().BoolVar(&resolveNonInteractive, "non-interactive", false, "fail on conflicts requiring manual resolution instead of prompting")
 	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 0, "timeout for interactive prompt (e.g. 30s). Auto-selects theirs if reached.")
 }

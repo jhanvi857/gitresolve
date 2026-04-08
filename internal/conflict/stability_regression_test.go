@@ -62,7 +62,8 @@ func TestRegression_test_h5_UnresolvedMarkersBlockedInCompiledOutput(t *testing.
 }
 
 func TestBothSelectionClosingBrace(t *testing.T) {
-	// MALFORMED INPUT: closing brace belongs to THEIRS but is outside marker
+	// MALFORMED INPUT: closing brace belongs to THEIRS but is outside marker.
+	// Hardened resolver should reject BOTH for invalid Go fragments.
 	content := []byte(strings.Join([]string{
 		"package main",
 		"<<<<<<< HEAD",
@@ -82,37 +83,14 @@ func TestBothSelectionClosingBrace(t *testing.T) {
 	}
 
 	c := conflicts[0]
-	// Assert depth balancing pulled the } into TheirsLines
-	found := false
-	for _, line := range c.TheirsLines {
-		if strings.TrimSpace(line) == "}" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("expected } to be in TheirsLines, but got: %v", c.TheirsLines)
-	}
 
-	// Simulate user selecting [B]oth
-	err := Resolve(c, StrategyBoth, ResolveOptions{})
-	if err != nil {
-		t.Fatalf("expected Resolve(Both) to succeed, got %v", err)
+	// Simulate user selecting [B]oth and expect rejection.
+	_, err := Resolve(c, StrategyBoth, ResolveOptions{})
+	if err == nil {
+		t.Fatal("expected Resolve(Both) to fail for invalid Go fragment")
 	}
-
-	// Calculate output
-	output := strings.Join(c.PreLines, "\n") + "\n" + c.Resolution + "\n" + strings.Join(c.PostLines, "\n")
-	output = strings.TrimSpace(output)
-
-	// Asserts
-	if err := Verify("jwt.go", output); err != nil {
-		t.Fatalf("expected output file to pass verification, got: %v", err)
-	}
-	if strings.Contains(output, "<<<<<<<") || strings.Contains(output, ">>>>>>>") {
-		t.Fatal("output contains conflict markers")
-	}
-	if !strings.Contains(output, "func GenerateToken") || !strings.Contains(output, "func RevokeToken") {
-		t.Fatal("output missing one of the function bodies")
+	if c.Resolution != "" {
+		t.Fatal("expected empty resolution when BOTH fails")
 	}
 }
 
@@ -134,12 +112,12 @@ func TestTheirsSelectionDanglingBrace(t *testing.T) {
 	c := conflicts[0]
 
 	// Simulate user selecting [T]heirs
-	err := Resolve(c, StrategyTheirs, ResolveOptions{})
+	_, err := Resolve(c, StrategyTheirs, ResolveOptions{})
 	if err != nil {
 		t.Fatalf("expected Resolve(Theirs) to succeed, got %v", err)
 	}
 
-	output := strings.Join(c.PreLines, "\n") + "\n" + c.Resolution + "\n" + strings.Join(c.PostLines, "\n")
+	output := CompileResolution(content, conflicts)
 	output = strings.TrimSpace(output)
 
 	if err := Verify("jwt.go", output); err != nil {
