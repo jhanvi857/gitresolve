@@ -70,7 +70,7 @@ func TestBothSelectionClosingBrace(t *testing.T) {
 		"func GenerateToken(userID string) string {",
 		"	return userID + \"-token\"",
 		"}",
-		"======= ",
+		"=======",
 		"func RevokeToken(token string) error {",
 		"	return nil",
 		">>>>>>> feature/performance-updates",
