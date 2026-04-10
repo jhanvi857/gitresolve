@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
@@ -114,6 +115,15 @@ var mergeCmd = &cobra.Command{
 
 			if fileAutoResolved > 0 {
 				newContent := conflict.CompileResolution(content, conflicts)
+				if strings.HasSuffix(file, ".go") {
+					if err := conflict.ValidateGoSyntax(file, newContent); err != nil {
+						reason := "reconstructed output failed Go syntax validation"
+						fmt.Printf("Escalating %s to manual: %s (%v)\n", file, reason, err)
+						validationFailed++
+						failedFiles = append(failedFiles, file)
+						continue
+					}
+				}
 				if err := conflict.Verify(file, newContent); err != nil {
 					fmt.Println("Error: Verification failed:", err)
 					validationFailed++

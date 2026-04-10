@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
@@ -156,6 +157,21 @@ var resolveCmd = &cobra.Command{
 			}
 
 			newContent := conflict.CompileResolution(content, conflicts)
+			if strings.HasSuffix(file, ".go") {
+				if err := conflict.ValidateGoSyntax(file, newContent); err != nil {
+					reason := "reconstructed output failed Go syntax validation"
+					fmt.Printf("Escalating %s to manual: %s (%v)\n", file, reason, err)
+					for _, c := range conflicts {
+						c.ManualReason = reason
+					}
+					validationFailed++
+					failedFiles = append(failedFiles, file)
+					if resolveNonInteractive {
+						os.Exit(1)
+					}
+					continue
+				}
+			}
 			if err := conflict.EnsureNoConflictMarkers(file, newContent); err != nil {
 				fmt.Printf("Safety check failed for %s: %v\n", file, err)
 				validationFailed++
