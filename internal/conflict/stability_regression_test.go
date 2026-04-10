@@ -1,9 +1,70 @@
 package conflict
 
 import (
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 )
+
+func TestSymmetricBraceRecovery(t *testing.T) {
+	content := []byte(strings.Join([]string{
+		"package auth",
+		"",
+		"import \"time\"",
+		"",
+		"<<<<<<< HEAD",
+		"const TokenExpiry = 48 * time.Hour",
+		"=======",
+		"const TokenExpiry = 72 * time.Hour",
+		">>>>>>> feature/performance-updates",
+		"",
+		"func ValidateToken(token string) bool {",
+		"\treturn len(token) > 0",
+		"}",
+		"",
+		"<<<<<<< HEAD",
+		"func GenerateToken(userID string) string {",
+		"\treturn userID + \"-token\"",
+		"=======",
+		"func RevokeToken(token string) error {",
+		"\treturn nil",
+		">>>>>>> feature/performance-updates",
+		"}",
+	}, "\n"))
+
+	conflicts := ParseFile("auth.go", content)
+	if len(conflicts) != 2 {
+		t.Fatalf("expected 2 conflict blocks, got %d", len(conflicts))
+	}
+
+	if _, err := Resolve(conflicts[0], StrategyTheirs, ResolveOptions{}); err != nil {
+		t.Fatalf("expected first conflict (theirs) to resolve, got %v", err)
+	}
+	if _, err := Resolve(conflicts[1], StrategyBoth, ResolveOptions{}); err != nil {
+		t.Fatalf("expected second conflict (both) to resolve, got %v", err)
+	}
+
+	output := CompileResolution(content, conflicts)
+
+	if !strings.Contains(output, "const TokenExpiry = 72 * time.Hour") {
+		t.Fatal("expected output to contain theirs const TokenExpiry value")
+	}
+	if !strings.Contains(output, "func GenerateToken(userID string) string {") {
+		t.Fatal("expected output to contain GenerateToken")
+	}
+	if !strings.Contains(output, "func RevokeToken(token string) error {") {
+		t.Fatal("expected output to contain RevokeToken")
+	}
+	if strings.Contains(output, "<<<<<<<") || strings.Contains(output, "=======") || strings.Contains(output, ">>>>>>>") {
+		t.Fatal("expected output to contain zero conflict markers")
+	}
+
+	fset := token.NewFileSet()
+	if _, err := parser.ParseFile(fset, "auth.go", output, parser.AllErrors); err != nil {
+		t.Fatalf("expected reconstructed output to pass go/parser.ParseFile, got %v", err)
+	}
+}
 
 func TestRegression_test_m2_StrictMarkerFailure(t *testing.T) {
 	content := "line 1\n<<<<<<< ours\nA\n=======\nB\n>>>>>>> theirs\nline 2\n"
@@ -95,12 +156,12 @@ func TestBothSelectionClosingBrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected Resolve(Both) to succeed, got %v", err)
 	}
-	
+
 	output := CompileResolution(content, conflicts)
 	if strings.Contains(output, "<<<<<<<") || strings.Contains(output, ">>>>>>>") {
 		t.Fatal("output still contains conflict markers")
 	}
-	
+
 	if err := Verify("jwt.go", output); err != nil {
 		t.Fatalf("expected output file to pass verification, got: %v", err)
 	}
