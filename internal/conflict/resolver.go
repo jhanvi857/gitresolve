@@ -221,6 +221,22 @@ func buildBothResolution(c *ConflictBlock) (string, error) {
 		logger.Debug("yaml both merge fallback: " + err.Error())
 	}
 
+	oursDepth := braceDepth(c.OursLines)
+	theirsDepth := braceDepth(c.TheirsLines)
+	if oursDepth > 0 || theirsDepth > 0 {
+		combined := make([]string, 0, len(c.OursLines)+len(c.TheirsLines)+3)
+		combined = append(combined, c.OursLines...)
+		if oursDepth > 0 {
+			combined = append(combined, "}")
+		}
+		combined = append(combined, "")
+		combined = append(combined, c.TheirsLines...)
+		if theirsDepth > 0 {
+			combined = append(combined, "}")
+		}
+		return strings.Join(combined, "\n"), nil
+	}
+
 	combined := combineWithIndent(c.OursLines, c.TheirsLines)
 	if ext == ".go" {
 		if err := validateGoFragment(combined); err != nil {
