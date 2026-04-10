@@ -126,13 +126,20 @@ func verifyTOML(filePath, content string) error {
 }
 
 func verifyGo(filePath, content string) error {
-	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, filePath, content, parser.AllErrors); err != nil {
+	if err := ValidateGoSyntax(filePath, content); err != nil {
 		return &VerificationError{
 			File:   filePath,
 			Reason: fmt.Sprintf("invalid Go syntax: %v", err),
 			Output: content,
 		}
+	}
+	return nil
+}
+
+func ValidateGoSyntax(filePath, content string) error {
+	fset := token.NewFileSet()
+	if _, err := parser.ParseFile(fset, filePath, content, parser.AllErrors); err != nil {
+		return err
 	}
 	return nil
 }
