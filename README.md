@@ -163,3 +163,32 @@ flowchart TD
 
 ## Reliability and Safety
 Each operation is protected by a multi-layered locking system using PID verification. Atomic writes and original file backups ensure the repository state can be recovered from any interrupted session. All history is stored in a local SQLite database capped at 1000 records to maintain performance.
+
+## Recent Updates (April 2026)
+
+### 1. Symmetric Brace Recovery for Malformed Conflict Markers
+Conflict parsing now handles malformed Git marker output on both sides of a block:
+
+1. **THEIRS trailing token recovery**: after `>>>>>>>`, if THEIRS brace depth is still open, parser consumes following lines into THEIRS until depth balances.
+2. **OURS trailing token recovery**: after reading `=======`, if OURS is still open and the line immediately before `<<<<<<<` is a standalone `}` (or whitespace + `}`), that line is moved from pre-block lines into OURS.
+
+### 2. Safe `[B]oth` Reconstruction for Asymmetric Blocks
+When selecting `both`, if either side remains brace-unbalanced after recovery, `gitresolve` no longer errors immediately. It reconstructs a syntactically complete merge by:
+
+1. taking OURS as-is,
+2. appending `}` if OURS remains open,
+3. inserting a blank separator line,
+4. taking THEIRS as-is,
+5. appending `}` if THEIRS remains open.
+
+### 3. Pre-write Full-file Go Syntax Validation
+Before writing reconstructed `.go` output, the resolver validates the complete file using Go parser checks. If validation fails, write is skipped and conflict handling escalates to manual with reason:
+
+`reconstructed output failed Go syntax validation`
+
+### 4. Fixture Isolation for Standard Go Verification
+Go fixture files under `tests/` that intentionally contain invalid or non-buildable code are now tagged with:
+
+`//go:build ignore`
+
+This keeps fixture content available for byte-level test inputs while preventing those files from breaking standard repository checks such as `go build ./...`, `go vet ./...`, and `go test ./...`.
