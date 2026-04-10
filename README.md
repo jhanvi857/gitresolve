@@ -192,3 +192,39 @@ Go fixture files under `tests/` that intentionally contain invalid or non-builda
 `//go:build ignore`
 
 This keeps fixture content available for byte-level test inputs while preventing those files from breaking standard repository checks such as `go build ./...`, `go vet ./...`, and `go test ./...`.
+
+### 5. Decision Observability and Stable Reason Codes
+Conflict escalation now includes machine-readable reason codes with a stable, additive contract (namespaced values such as `parser.*`, `semantic.*`, `strategy.*`, `validation.*`).
+
+The resolver persists structured decision events to local SQLite (`decision_logs`) so teams can audit:
+
+1. conflict type and severity,
+2. selected action (`auto-resolve`, `manual-escalate`, `shadow-diff`, etc.),
+3. reason code and human-readable reason,
+4. confidence and operation context.
+
+### 6. Shadow Mode with Hash-based Diff Recording
+Both `resolve` and `merge` now support simulation mode via:
+
+`--shadow`
+
+In shadow mode, no file write occurs. Instead, the engine records deterministic before/after content hashes (original vs simulated output) to estimate blast radius safely before enforcement.
+
+### 7. Release Gates for Operational Safety
+For policy-controlled environments, commands support:
+
+1. `--enforce-gates`
+2. `--manual-rate-gate <percent>`
+
+Current hard safety gate remains active: validation failures cause non-zero exit. Optional manual escalation-rate gating can now fail runs when operational thresholds are exceeded.
+
+### 8. Capability-aware Semantic Guarding
+Semantic handling is now gated by parser capability availability, not extension label alone. If semantic parsing support is unavailable in the current runtime, the conflict is escalated with an explicit reason code (`semantic.parse_failed`) rather than attempting unsafe logic.
+
+### 9. Hardening Test Expansion
+The test suite now includes additional safety-oriented coverage:
+
+1. **Fuzz oracle tests** for parser/resolution invariants and corruption guards.
+2. **Idempotency tests** to ensure repeated resolution is stable.
+3. **Strategy consistency tests** to prevent cross-strategy contamination.
+4. **Corpus deduplication tests** using normalized conflict fingerprints to keep large real-world corpora efficient and signal-rich.
