@@ -27,3 +27,5 @@ func ComputeFactor(inputs []float64, weight float64) ([]Result, error) {
 	}
 	return results, nil
 }
+
+func main() {}
