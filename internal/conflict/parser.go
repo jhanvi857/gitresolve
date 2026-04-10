@@ -5,6 +5,18 @@ import (
 	"strings"
 )
 
+func braceDepth(lines []string) int {
+	depth := 0
+	for _, l := range lines {
+		depth += strings.Count(l, "{") - strings.Count(l, "}")
+	}
+	return depth
+}
+
+func isStandaloneClosingBrace(line string) bool {
+	return strings.TrimSpace(line) == "}"
+}
+
 func ParseFile(filePath string, content []byte) []*ConflictBlock {
 	lines := strings.Split(string(content), "\n")
 	var conflicts []*ConflictBlock
@@ -36,6 +48,14 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 				continue
 			}
 			if strings.HasPrefix(currLine, "=======") {
+				// Recover OURS trailing closing brace leaked before the marker.
+				if braceDepth(cb.OursLines) > 0 && len(cb.PreLines) > 0 {
+					lastPre := cb.PreLines[len(cb.PreLines)-1]
+					if isStandaloneClosingBrace(lastPre) {
+						cb.OursLines = append(cb.OursLines, lastPre)
+						cb.PreLines = cb.PreLines[:len(cb.PreLines)-1]
+					}
+				}
 				side = 3
 				i++
 				continue
@@ -47,10 +67,7 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 
 				// Brace-aware check for THEIRS block: if depth > 0 (more { than }),
 				// continue reading subsequent lines into TheirsLines until depth is zero.
-				depth := 0
-				for _, l := range cb.TheirsLines {
-					depth += strings.Count(l, "{") - strings.Count(l, "}")
-				}
+				depth := braceDepth(cb.TheirsLines)
 
 				if depth > 0 {
 					next := i + 1
