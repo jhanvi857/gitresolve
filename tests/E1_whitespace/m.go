@@ -1,4 +1,5 @@
+//go:build ignore
+
 package m
 
-
-func m(){f.P("h")}
+func m() { f.P("h") }

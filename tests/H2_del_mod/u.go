@@ -1,3 +1,6 @@
+//go:build ignore
+
 package u
-func O(){println("m")}
-func K(){}
+
+func O() { println("m") }
+func K() {}

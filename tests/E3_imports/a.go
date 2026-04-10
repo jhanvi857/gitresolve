@@ -1,3 +1,3 @@
+//go:build ignore
+
 package a
-import ("c"
-"f")

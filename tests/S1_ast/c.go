@@ -1,3 +1,5 @@
+//go:build ignore
+
 package m
 <<<<<<< HEAD
 func m(){if t{if t{p("o")}}}}
