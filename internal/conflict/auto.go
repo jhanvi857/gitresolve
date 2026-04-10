@@ -24,8 +24,7 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 	switch c.Type {
 	case TypeStructured:
 		if opts.NoAutoStructured {
-			c.ManualReason = "structured auto-merge disabled by --no-auto-structured"
-			c.SuggestHint = "try --strategy ours|theirs|both on this file"
+			SetManualEscalation(c, ReasonStructuredAutoDisabled, "structured auto-merge disabled by --no-auto-structured", "try --strategy ours|theirs|both on this file")
 			return false
 		}
 		ext := filepath.Ext(c.FilePath)
@@ -49,11 +48,10 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 			return true
 		}
 		if err != nil {
-			c.ManualReason = fmt.Sprintf("structured merge parse failed: %v", err)
+			SetManualEscalation(c, ReasonStructuredParseFailed, fmt.Sprintf("structured merge parse failed: %v", err), "resolve manually with --strategy ours|theirs|both")
 		} else {
-			c.ManualReason = "structured merge has overlapping key/block edits"
+			SetManualEscalation(c, ReasonStructuredOverlap, "structured merge has overlapping key/block edits", "resolve manually with --strategy ours|theirs|both")
 		}
-		c.SuggestHint = "resolve manually with --strategy ours|theirs|both"
 
 	case TypeWhitespace:
 		c.Resolution = strings.Join(c.OursLines, "\n")
@@ -62,8 +60,7 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 	case TypeImport:
 		if analysis.IsCriticalFile(c.FilePath) {
 			if unsafe, reason := hasCriticalImportOverlap(c); unsafe {
-				c.ManualReason = reason
-				c.SuggestHint = "critical file overlap detected; choose ours/theirs manually"
+				SetManualEscalation(c, ReasonImportOverlapCritical, reason, "critical file overlap detected; choose ours/theirs manually")
 				return false
 			}
 		}
@@ -75,13 +72,11 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 			merged = mergeImports(c.OursLines, c.TheirsLines)
 		}
 		if len(merged) == 0 {
-			c.ManualReason = "could not produce a valid merged import block"
-			c.SuggestHint = "retry with --strategy ours|theirs|both"
+			SetManualEscalation(c, ReasonImportMergeFailed, "could not produce a valid merged import block", "retry with --strategy ours|theirs|both")
 			return false
 		}
 		if !importBlockParses(c.FilePath, merged) {
-			c.ManualReason = "merged import block failed syntax parse-check"
-			c.SuggestHint = "retry with --strategy ours|theirs|both"
+			SetManualEscalation(c, ReasonImportParseFailed, "merged import block failed syntax parse-check", "retry with --strategy ours|theirs|both")
 			return false
 		}
 		c.Resolution = strings.Join(merged, "\n")

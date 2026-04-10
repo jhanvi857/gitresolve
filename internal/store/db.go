@@ -50,6 +50,23 @@ func (db *DB) migrate() error {
 			snapshot_sha TEXT NOT NULL,
 			created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
+
+		CREATE TABLE IF NOT EXISTS decision_logs (
+			id              INTEGER PRIMARY KEY AUTOINCREMENT,
+			repo_path       TEXT NOT NULL,
+			file_path       TEXT NOT NULL,
+			operation       TEXT NOT NULL,
+			conflict_type   TEXT NOT NULL,
+			severity        TEXT NOT NULL,
+			action          TEXT NOT NULL,
+			reason_code     TEXT NOT NULL,
+			reason          TEXT NOT NULL,
+			confidence      REAL NOT NULL,
+			shadow          INTEGER NOT NULL DEFAULT 0,
+			original_hash   TEXT NOT NULL DEFAULT '',
+			simulated_hash  TEXT NOT NULL DEFAULT '',
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
 	`)
 	return err
 }
