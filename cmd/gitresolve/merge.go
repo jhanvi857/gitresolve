@@ -16,6 +16,9 @@ import (
 
 var dryRun bool
 var noAutoStructured bool
+var mergeShadow bool
+var mergeEnforceGates bool
+var mergeManualRateGate float64
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
@@ -59,6 +62,8 @@ var mergeCmd = &cobra.Command{
 		interactiveResolved := 0 // remain 0 for merge command
 		validationFailed := 0
 		filesUpdated := 0
+		totalDecisions := 0
+		manualEscalations := 0
 		var failedFiles []string
 
 		for _, file := range files {
@@ -81,6 +86,7 @@ var mergeCmd = &cobra.Command{
 			var fileAutoResolved int
 
 			for _, c := range conflicts {
+				totalDecisions++
 				conflict.Classify(c)
 				if conflict.ShouldAutoApply(c) {
 					resolved := conflict.AutoResolve(c, conflict.Options{
@@ -97,9 +103,22 @@ var mergeCmd = &cobra.Command{
 								Severity:     severityLabel(c.Severity),
 								Strategy:     "auto",
 							})
+							_ = db.SaveDecision(store.DecisionRecord{
+								RepoPath:     repoPath,
+								FilePath:     file,
+								Operation:    "merge",
+								ConflictType: typeLabel(c.Type),
+								Severity:     severityLabel(c.Severity),
+								Action:       "auto-resolve",
+								ReasonCode:   reasonCodeOrUnknown(c),
+								Reason:       c.ManualReason,
+								Confidence:   c.Confidence,
+								Shadow:       mergeShadow,
+							})
 						}
 					} else {
 						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
+						manualEscalations++
 						if dbErr == nil {
 							_ = db.SaveConflict(store.ConflictRecord{
 								RepoPath:     repoPath,
@@ -108,17 +127,66 @@ var mergeCmd = &cobra.Command{
 								Severity:     severityLabel(c.Severity),
 								Strategy:     "manual-required",
 							})
+							_ = db.SaveDecision(store.DecisionRecord{
+								RepoPath:     repoPath,
+								FilePath:     file,
+								Operation:    "merge",
+								ConflictType: typeLabel(c.Type),
+								Severity:     severityLabel(c.Severity),
+								Action:       "manual-escalate",
+								ReasonCode:   reasonCodeOrUnknown(c),
+								Reason:       c.ManualReason,
+								Confidence:   c.Confidence,
+								Shadow:       mergeShadow,
+							})
 						}
+					}
+				} else {
+					manualEscalations++
+					if dbErr == nil {
+						_ = db.SaveDecision(store.DecisionRecord{
+							RepoPath:     repoPath,
+							FilePath:     file,
+							Operation:    "merge",
+							ConflictType: typeLabel(c.Type),
+							Severity:     severityLabel(c.Severity),
+							Action:       "manual-escalate",
+							ReasonCode:   reasonCodeOrUnknown(c),
+							Reason:       c.ManualReason,
+							Confidence:   c.Confidence,
+							Shadow:       mergeShadow,
+						})
 					}
 				}
 			}
 
 			if fileAutoResolved > 0 {
 				newContent := conflict.CompileResolution(content, conflicts)
+				if mergeShadow {
+					if dbErr == nil {
+						_ = db.SaveDecision(store.DecisionRecord{
+							RepoPath:      repoPath,
+							FilePath:      file,
+							Operation:     "merge",
+							ConflictType:  "file",
+							Severity:      "info",
+							Action:        "shadow-diff",
+							ReasonCode:    conflict.ReasonShadowDiff,
+							Reason:        "shadow simulation recorded",
+							Confidence:    1,
+							Shadow:        true,
+							OriginalHash:  hashContent(content),
+							SimulatedHash: hashContent([]byte(newContent)),
+						})
+					}
+					fmt.Printf("[shadow] simulated resolution for %s (no write)\n", file)
+					continue
+				}
 				if strings.HasSuffix(file, ".go") {
 					if err := conflict.ValidateGoSyntax(file, newContent); err != nil {
 						reason := "reconstructed output failed Go syntax validation"
 						fmt.Printf("Escalating %s to manual: %s (%v)\n", file, reason, err)
+						manualEscalations += len(conflicts)
 						validationFailed++
 						failedFiles = append(failedFiles, file)
 						continue
@@ -153,8 +221,18 @@ var mergeCmd = &cobra.Command{
 		fmt.Printf("\nMerge complete. Summary:\n")
 		fmt.Printf("  auto_resolved: %d\n", autoResolved)
 		fmt.Printf("  interactive_resolved: %d\n", interactiveResolved)
+		fmt.Printf("  manual_escalations: %d\n", manualEscalations)
+		fmt.Printf("  total_decisions: %d\n", totalDecisions)
 		fmt.Printf("  validation_failed: %d\n", validationFailed)
 		fmt.Printf("  files_updated: %d\n", filesUpdated)
+		if totalDecisions > 0 {
+			manualRate := (float64(manualEscalations) / float64(totalDecisions)) * 100
+			fmt.Printf("  manual_escalation_rate: %.2f%%\n", manualRate)
+			if mergeEnforceGates && manualRate > mergeManualRateGate {
+				fmt.Printf("Release gate failed: manual escalation rate %.2f%% exceeds threshold %.2f%%\n", manualRate, mergeManualRateGate)
+				os.Exit(1)
+			}
+		}
 
 		if validationFailed > 0 {
 			fmt.Println("\nFiles with validation failures:")
@@ -170,5 +248,8 @@ func init() {
 	rootCmd.AddCommand(mergeCmd)
 	mergeCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would happen without writing")
 	mergeCmd.Flags().BoolVar(&dryRun, "dryrun", false, "alias for --dry-run")
+	mergeCmd.Flags().BoolVar(&mergeShadow, "shadow", false, "simulate resolution and record hash-only diff decisions without writing")
 	mergeCmd.Flags().BoolVar(&noAutoStructured, "no-auto-structured", false, "disable auto-resolution for structured files (JSON/YAML/TOML)")
+	mergeCmd.Flags().BoolVar(&mergeEnforceGates, "enforce-gates", false, "enforce release gate thresholds (manual rate and validation failures)")
+	mergeCmd.Flags().Float64Var(&mergeManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")
 }

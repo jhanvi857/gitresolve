@@ -21,6 +21,9 @@ var resolveStrategy string
 var resolveDryRun bool
 var resolveNonInteractive bool
 var resolveTimeout time.Duration
+var resolveShadow bool
+var resolveEnforceGates bool
+var resolveManualRateGate float64
 
 var resolveCmd = &cobra.Command{
 	Use:   "resolve",
@@ -72,6 +75,8 @@ var resolveCmd = &cobra.Command{
 		interactiveResolved := 0
 		validationFailed := 0
 		filesUpdated := 0
+		totalDecisions := 0
+		manualEscalations := 0
 		var failedFiles []string
 
 		for _, file := range files {
@@ -101,6 +106,7 @@ var resolveCmd = &cobra.Command{
 			fileValidationFailed := false
 			fileSkipped := false
 			for _, c := range conflicts {
+				totalDecisions++
 				logger.Debug(fmt.Sprintf("conflict block parsed: file=%s start=%d end=%d ours=%d theirs=%d", file, c.StartLine, c.EndLine, len(c.OursLines), len(c.TheirsLines)))
 				conflict.Classify(c)
 				isAuto := false
@@ -126,6 +132,21 @@ var resolveCmd = &cobra.Command{
 				if resolveErr != nil {
 					fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
 					logger.Debug(fmt.Sprintf("resolution failure: file=%s start=%d end=%d err=%v", file, c.StartLine, c.EndLine, resolveErr))
+					manualEscalations++
+					if dbErr == nil {
+						_ = db.SaveDecision(store.DecisionRecord{
+							RepoPath:     repoPath,
+							FilePath:     file,
+							Operation:    "resolve",
+							ConflictType: typeLabel(c.Type),
+							Severity:     severityLabel(c.Severity),
+							Action:       "manual-escalate",
+							ReasonCode:   reasonCodeOrUnknown(c),
+							Reason:       c.ManualReason,
+							Confidence:   c.Confidence,
+							Shadow:       resolveShadow,
+						})
+					}
 					validationFailed++
 					failedFiles = append(failedFiles, file)
 					fileValidationFailed = true
@@ -137,8 +158,42 @@ var resolveCmd = &cobra.Command{
 
 				logger.Debug(fmt.Sprintf("resolution selected: file=%s start=%d end=%d choice=%s applied=%v", file, c.StartLine, c.EndLine, result.SelectedLabel, result.Applied))
 				if !result.Applied {
+					manualEscalations++
+					if dbErr == nil {
+						_ = db.SaveDecision(store.DecisionRecord{
+							RepoPath:     repoPath,
+							FilePath:     file,
+							Operation:    "resolve",
+							ConflictType: typeLabel(c.Type),
+							Severity:     severityLabel(c.Severity),
+							Action:       "manual",
+							ReasonCode:   reasonCodeOrUnknown(c),
+							Reason:       c.ManualReason,
+							Confidence:   c.Confidence,
+							Shadow:       resolveShadow,
+						})
+					}
 					fileSkipped = true
 					continue
+				}
+
+				if dbErr == nil {
+					action := "resolve"
+					if isAuto {
+						action = "auto-resolve"
+					}
+					_ = db.SaveDecision(store.DecisionRecord{
+						RepoPath:     repoPath,
+						FilePath:     file,
+						Operation:    "resolve",
+						ConflictType: typeLabel(c.Type),
+						Severity:     severityLabel(c.Severity),
+						Action:       action,
+						ReasonCode:   reasonCodeOrUnknown(c),
+						Reason:       c.ManualReason,
+						Confidence:   c.Confidence,
+						Shadow:       resolveShadow,
+					})
 				}
 
 				if isAuto {
@@ -157,13 +212,34 @@ var resolveCmd = &cobra.Command{
 			}
 
 			newContent := conflict.CompileResolution(content, conflicts)
+			if resolveShadow {
+				if dbErr == nil {
+					_ = db.SaveDecision(store.DecisionRecord{
+						RepoPath:      repoPath,
+						FilePath:      file,
+						Operation:     "resolve",
+						ConflictType:  "file",
+						Severity:      "info",
+						Action:        "shadow-diff",
+						ReasonCode:    conflict.ReasonShadowDiff,
+						Reason:        "shadow simulation recorded",
+						Confidence:    1,
+						Shadow:        true,
+						OriginalHash:  hashContent(content),
+						SimulatedHash: hashContent([]byte(newContent)),
+					})
+				}
+				fmt.Printf("[shadow] simulated resolution for %s (no write)\n", file)
+				continue
+			}
 			if strings.HasSuffix(file, ".go") {
 				if err := conflict.ValidateGoSyntax(file, newContent); err != nil {
 					reason := "reconstructed output failed Go syntax validation"
 					fmt.Printf("Escalating %s to manual: %s (%v)\n", file, reason, err)
 					for _, c := range conflicts {
-						c.ManualReason = reason
+						conflict.SetManualEscalation(c, conflict.ReasonValidationSyntaxFailed, reason, "resolve manually with --strategy ours|theirs")
 					}
+					manualEscalations += len(conflicts)
 					validationFailed++
 					failedFiles = append(failedFiles, file)
 					if resolveNonInteractive {
@@ -232,8 +308,18 @@ var resolveCmd = &cobra.Command{
 		fmt.Printf("\nResolve complete. Summary:\n")
 		fmt.Printf("  auto_resolved: %d\n", autoResolved)
 		fmt.Printf("  interactive_resolved: %d\n", interactiveResolved)
+		fmt.Printf("  manual_escalations: %d\n", manualEscalations)
+		fmt.Printf("  total_decisions: %d\n", totalDecisions)
 		fmt.Printf("  validation_failed: %d\n", validationFailed)
 		fmt.Printf("  files_updated: %d\n", filesUpdated)
+		if totalDecisions > 0 {
+			manualRate := (float64(manualEscalations) / float64(totalDecisions)) * 100
+			fmt.Printf("  manual_escalation_rate: %.2f%%\n", manualRate)
+			if resolveEnforceGates && manualRate > resolveManualRateGate {
+				fmt.Printf("Release gate failed: manual escalation rate %.2f%% exceeds threshold %.2f%%\n", manualRate, resolveManualRateGate)
+				os.Exit(1)
+			}
+		}
 
 		if validationFailed > 0 {
 			fmt.Println("\nFiles with validation failures:")
@@ -276,6 +362,9 @@ func init() {
 	resolveCmd.Flags().StringVar(&resolveStrategy, "strategy", "interactive", "resolve strategy: interactive|ours|theirs|both")
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dry-run", false, "show what would happen without writing")
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dryrun", false, "alias for --dry-run")
+	resolveCmd.Flags().BoolVar(&resolveShadow, "shadow", false, "simulate resolution and record hash-only diff decisions without writing")
 	resolveCmd.Flags().BoolVar(&resolveNonInteractive, "non-interactive", false, "fail on conflicts requiring manual resolution instead of prompting")
+	resolveCmd.Flags().BoolVar(&resolveEnforceGates, "enforce-gates", false, "enforce release gate thresholds (manual rate and validation failures)")
+	resolveCmd.Flags().Float64Var(&resolveManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")
 	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 0, "timeout for interactive prompt (e.g. 30s). Auto-selects theirs if reached.")
 }

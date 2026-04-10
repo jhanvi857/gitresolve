@@ -2,6 +2,7 @@ package conflict
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -51,6 +52,12 @@ func Resolve(c *ConflictBlock, strategy Strategy, opts ResolveOptions) (ResolveR
 			return res, nil
 		case StrategyBoth:
 			res.SelectedLabel = "both"
+			if bothUnsafeReason := riskReasonForBoth(c); bothUnsafeReason != "" {
+				SetManualEscalation(c, ReasonStrategyBothBlockedRisk, bothUnsafeReason, "choose ours/theirs or edit manually")
+				res.BothAllowedNext = false
+				res.FailureHint = bothUnsafeReason
+				return res, errors.New(bothUnsafeReason)
+			}
 			merged, err := buildBothResolution(c)
 			if err != nil {
 				res.BothAllowedNext = false
@@ -284,5 +291,31 @@ func validateGoFragment(lines []string) error {
 		return nil
 	} else {
 		return err
+	}
+}
+
+func riskReasonForBoth(c *ConflictBlock) string {
+	if !isCodeFileForBothRisk(c.FilePath) {
+		return ""
+	}
+	if c.Type == TypeDeleteModify {
+		return "BOTH disabled for delete-vs-modify conflicts on source code; choose ours/theirs/manual"
+	}
+	if c.Type == TypeSignature {
+		return "BOTH disabled for function signature conflicts on source code; choose ours/theirs/manual"
+	}
+	if c.Type == TypeLogic && c.Severity >= SeverityHigh {
+		return "BOTH disabled for high-risk semantic logic conflicts; choose ours/theirs/manual"
+	}
+	return ""
+}
+
+func isCodeFileForBothRisk(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".go", ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".kt", ".rb", ".php", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".swift":
+		return true
+	default:
+		return false
 	}
 }

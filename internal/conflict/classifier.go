@@ -1,6 +1,7 @@
 package conflict
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -13,6 +14,17 @@ const (
 )
 
 func Classify(c *ConflictBlock) {
+	if hasEmbeddedConflictMarkers(c) || strings.Contains(c.ManualReason, "malformed conflict markers") {
+		c.Type = TypeUnknown
+		c.Severity = SeverityCritical
+		c.Confidence = 0.05
+		c.CanAutoResolve = false
+		if c.ManualReason == "" || c.ManualReasonCode == "" {
+			SetManualEscalation(c, ReasonParserMalformedNestedMarker, "malformed conflict markers detected", "prefer ours/theirs or manual edit for nested/irregular markers")
+		}
+		return
+	}
+
 	// rule 1: whitespace only
 	// strip all whitespace from both sides and compare
 	// if they are identical after stripping = whitespace conflict
@@ -108,6 +120,26 @@ func Classify(c *ConflictBlock) {
 		c.Severity = SeverityHigh
 		c.Confidence = 0.58
 		c.CanAutoResolve = false
+		return
+	}
+
+	if isSourceLikeFile(c.FilePath) && !hasSemanticResolverCoverage(c.FilePath) {
+		c.Type = TypeUnknown
+		c.Severity = SeverityHigh
+		c.Confidence = 0.35
+		c.CanAutoResolve = false
+		if c.ManualReason == "" || c.ManualReasonCode == "" {
+			SetManualEscalation(c, ReasonSemanticUnsupportedLanguage, "language-specific semantic resolver not available for this file type", "use ours/theirs/manual and run language-native checks after merge")
+		}
+		return
+	}
+
+	if isSourceLikeFile(c.FilePath) && hasSemanticResolverCoverage(c.FilePath) && !semanticParserAvailable(c.FilePath) {
+		c.Type = TypeUnknown
+		c.Severity = SeverityHigh
+		c.Confidence = 0.30
+		c.CanAutoResolve = false
+		SetManualEscalation(c, ReasonSemanticParseFailed, "semantic parser unavailable for this environment", "install parser/runtime support or resolve manually with ours/theirs")
 		return
 	}
 
@@ -316,6 +348,46 @@ func isSensitivePath(filePath string) bool {
 		if strings.Contains(lowerPath, pattern) {
 			return true
 		}
+	}
+	return false
+}
+
+func hasEmbeddedConflictMarkers(c *ConflictBlock) bool {
+	all := append([]string{}, c.OursLines...)
+	all = append(all, c.BaseLines...)
+	all = append(all, c.TheirsLines...)
+	for _, line := range all {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "<<<<<<<") || strings.HasPrefix(trimmed, "=======") || strings.HasPrefix(trimmed, ">>>>>>>") || strings.HasPrefix(trimmed, "|||||||") {
+			return true
+		}
+	}
+	return false
+}
+
+func isSourceLikeFile(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".go", ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".kt", ".rb", ".php", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".swift":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasSemanticResolverCoverage(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	return ext == ".go" || ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx"
+}
+
+func semanticParserAvailable(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext == ".go" {
+		return true
+	}
+	if ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx" {
+		_, err := analysis.ParseFile("probe"+ext, []byte("const __gitresolve_probe = 1;"))
+		return err == nil
 	}
 	return false
 }

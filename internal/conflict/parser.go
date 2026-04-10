@@ -39,15 +39,24 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 
 		i++
 		side := 1 // 1=ours, 2=base, 3=theirs
+		sawDivider := false
+		malformedMarkers := false
 		foundEnd := false
 		for i < len(lines) {
 			currLine := lines[i]
+			if strings.HasPrefix(currLine, "<<<<<<<") {
+				malformedMarkers = true
+			}
 			if strings.HasPrefix(currLine, "|||||||") {
 				side = 2
 				i++
 				continue
 			}
 			if strings.HasPrefix(currLine, "=======") {
+				if side == 3 {
+					malformedMarkers = true
+				}
+				sawDivider = true
 				// Recover OURS trailing closing brace leaked before the marker.
 				if braceDepth(cb.OursLines) > 0 && len(cb.PreLines) > 0 {
 					lastPre := cb.PreLines[len(cb.PreLines)-1]
@@ -61,6 +70,9 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 				continue
 			}
 			if strings.HasPrefix(currLine, ">>>>>>>") {
+				if !sawDivider {
+					malformedMarkers = true
+				}
 				cb.EndIndex = i
 				cb.EndLine = i + 1
 				foundEnd = true
@@ -97,6 +109,9 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 
 		if !foundEnd {
 			continue
+		}
+		if malformedMarkers {
+			SetManualEscalation(cb, ReasonParserMalformedNestedMarker, "malformed conflict markers detected", "prefer ours/theirs or manual edit for nested/irregular markers")
 		}
 
 		postStart := cb.EndIndex + 1

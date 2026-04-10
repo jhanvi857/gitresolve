@@ -1,6 +1,8 @@
 package gitresolve
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -126,4 +128,16 @@ func hasConflictMarkers(content string) bool {
 	return strings.Contains(content, "<<<<<<<") &&
 		strings.Contains(content, "=======") &&
 		strings.Contains(content, ">>>>>>>")
+}
+
+func hashContent(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
+}
+
+func reasonCodeOrUnknown(c *conflict.ConflictBlock) string {
+	if c != nil && conflict.IsStableReasonCode(c.ManualReasonCode) {
+		return c.ManualReasonCode
+	}
+	return conflict.ReasonDecisionUnknown
 }
