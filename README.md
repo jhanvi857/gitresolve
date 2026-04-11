@@ -1,53 +1,67 @@
 # gitresolve
+
 <p align="center">
   <img src="documentation/public/logo.png" width="240" alt="gitresolve logo">
 </p>
 
-A locally executed Git merge conflict solver built with support for structured data and syntax-aware analysis.
+A locally executed, safety-first Git merge conflict resolver with syntax-aware classification, structured data merging, and full decision auditability.
 
-Standard Git merge operations perform line-based text integration. `gitresolve` classifies conflicts into deterministic categories and applies specific merging strategies for configuration files and code structures.
+Standard Git merge operations perform line-based text integration. `gitresolve` classifies conflicts into deterministic categories, applies targeted resolution strategies per conflict type, and escalates to manual review when automated resolution would be unsafe. Every decision is logged, queryable, and CI-gateable.
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Core Features](#core-features)
+- [Command Reference](#command-reference)
+- [Policy Profiles](#policy-profiles)
+- [Observability and Stats](#observability-and-stats)
+- [CI Integration](#ci-integration)
+- [Architecture](#architecture)
+- [Testing](#testing)
+- [Evidence and Limitations](#evidence-and-limitations)
+- [Readiness Gates](#readiness-gates)
+- [Comparative Positioning](#comparative-positioning)
+
+---
 
 ## Installation
 
 ### Via Go Toolchain
+
 ```bash
 go install github.com/jhanvi857/gitresolve@latest
 ```
 
 ### From Source
+
 ```bash
 git clone https://github.com/jhanvi857/gitresolve.git
 cd gitresolve
 go build -o gitresolve ./cmd/gitresolve
-# Move the binary to your executable path
 mv gitresolve /usr/local/bin/
 ```
 
-## Quick Start Setup
+---
 
-### 1. Integration with Git
-To use `gitresolve` as your default resolution tool after a failed merge:
+## Quick Start
 
 ```bash
-# View current conflicts
+# View current conflicts with block-level severity
 gitresolve status
 
-# Start interactive resolution
+# Resolve interactively
 gitresolve resolve
-```
 
-### 2. Pre-merge Scanning
-To predict conflicts before running a destructive merge operation:
-
-```bash
+# Predict conflicts before a destructive merge
 gitresolve scan --target main
-```
 
-### 3. Automated Environments (CI)
-Integrate `gitresolve` into your CI/CD pipelines to catch unresolvable conflicts early:
+# Simulate decisions without writing any files
+gitresolve resolve --shadow
 
-```bash
-# In your CI script (e.g., GitHub Actions)
+# Run in CI with non-interactive mode
 gitresolve resolve --non-interactive --timeout 1m
 ```
 
@@ -55,94 +69,29 @@ gitresolve resolve --non-interactive --timeout 1m
 
 ## Core Features
 
-### 1. Abstract Syntax Tree (AST) Intelligence
-Instead of analyzing raw text, `gitresolve` integrates `go-tree-sitter` to compile conflicting blocks into syntax trees. This allows high-accuracy detection of function signature modifications and logical refactors in Go, JavaScript, and TypeScript.
+### Safety-First Execution
 
-### 2. Structured Data Auto-merger
-Performs deep recursive map merges for JSON, YAML, and TOML using language-native parsers. Includes conservative array unioning to prevent silent data corruption and restricts auto-resolution for critical dependency files like package.json or go.mod.
+Every write operation is protected by atomic file swaps, PID-verified multi-layer locking, and pre-write syntax validation. If Go output validation fails, the write is skipped and the conflict escalates to manual review. The tool prefers a correct escalation over an unsafe auto-resolution.
 
-### 3. Safety-First Execution Profile
-* **Atomic Writes**: Uses temporary files and pointer swaps to prevent file corruption.
-* **State Backups**: Creates temporary `<file>.gitresolve-orig` copies before any modifications.
-* **Multi-layer Locking**: Prevents parallel execution using PID-verified file locks.
+### AST-Based Classification
 
----
+`gitresolve` integrates `go-tree-sitter` to compile conflicting blocks into syntax trees rather than operating on raw text. This enables accurate detection of function signature modifications, struct field conflicts, and logical refactors across Go, JavaScript, and TypeScript.
 
-## Robust Testing Framework
+### Structured Data Merging
 
-`gitresolve` includes a production-grade testing ecosystem designed to validate conflict resolution accuracy across four distinct severity levels.
+Deep recursive map merges for JSON, YAML, and TOML files using language-native parsers. Includes conservative array unioning to prevent silent data corruption. Auto-resolution is restricted for critical dependency files such as `package.json` and `go.mod`.
 
-### Tiered Test Suite
+### Decision Auditability
 
-1. **Level 1 (Easy)**: Validates whitespace changes, identical dual-sided modifications, and Go import deduplication.
-2. **Level 2 (Medium)**: Tests JSON deep object merging, YAML array overlaps, and `go.mod` require block conflicts.
-3. **Level 3 (Hard)**: Resolves complex `package.json` script updates, delete vs modify conflicts, and multi-file batch resolutions.
-4. **Level 4 (Severe)**: Stress tests AST parsing resilience, concurrent lock contention, and database migration file consistency.
+Every conflict decision is persisted to a local SQLite database with a stable, namespaced reason code (`parser.*`, `semantic.*`, `strategy.*`, `validation.*`). The decision log records conflict type, selected action, confidence level, and operation context. This makes every resolution auditable and retrospectively analyzable.
 
-### Testing Workflow
-The project utilizes a dedicated Python-based conflict generator and a PowerShell-driven test runner to ensure environment consistency.
+### Shadow Mode
 
-```mermaid
-graph LR
-    Generator[Conflict Generator] --> |Creates| Fixtures[Test Fixtures]
-    Fixtures --> |Input| Runner[Test Runner]
-    Runner --> |Executes| Binary[gitresolve Binary]
-    Binary --> |Produces| Result[Resolution Output]
-    Result --> |Validated by| Checker[Syntax & Marker Check]
-    Checker --> |Generates| Report[JUnit/Markdown Report]
-```
+Run `--shadow` to simulate the full resolution pipeline without writing any files. Before-and-after content hashes are recorded so you can measure blast radius before enforcing automation.
 
----
+### Policy Profiles
 
-## Advanced Features
-
-### 1. Diagnostic Conflict Pattern Detection
-Analyze the root cause of friction in your repository. By tracking history, identify the most common conflict types (e.g. Scalar 42%, Signature 15%), helping teams optimize their branching policies.
-
-### 2. Tiered Interaction Model (Scalar UX)
-The interactive prompter adapts to the complexity of the conflict. For minor single-line changes (TypeScalar), it provides a concise one-line comparison instead of the standard side-by-side block, reducing developer cognitive load.
-
-### 3. CI and Automated Environment Interop
-Specifically designed for automated pipelines with `--non-interactive` (exits with status 1 on manual requirements) and `--timeout` flags (auto-selects their-side resolution after a set duration).
-
-### 4. Syntax-Aware Readiness Validation
-After resolution, the engine optionally verifies the file's syntax validity. If the resolution breaks the code structure, the merge is halted immediately.
-
----
-
-## Architectural Workflow
-
-The operational flow prioritizes safety, executing natively without external API dependencies.
-
-```mermaid
-flowchart TD
-    Start[User Triggers Resolve] --> LockRepo[Lock Repository]
-    LockRepo --> ReadGit[Identify Conflicted Files]
-    ReadGit --> LoopFiles{For Each File}
-    
-    LoopFiles --> Parsed[Parse Conflict Markers]
-    Parsed --> Classify[AST and Heuristic Classification]
-    
-    Classify --> IsStructured{Is Config File?}
-    IsStructured -- Yes --> StructuralMerge[Deep Map Serialization]
-    StructuralMerge --> Output[Generate Clean File]
-    
-    IsStructured -- No --> IsSafeText{Is Safe Text Change?}
-    IsSafeText -- Yes --> AutoResolve[Auto Merge Imports/Whitespace]
-    AutoResolve --> Output
-    
-    IsSafeText -- No --> UserInput[Interactive Terminal Prompter]
-    UserInput --> ReceiveInput[Receive Developer Decision]
-    ReceiveInput --> Output
-    
-    Output --> Verify[Verify Syntax Validity]
-    Verify --> Write[Atomic Write and Git Stage]
-    Write --> NextFile{More Files?}
-    
-    NextFile -- Yes --> LoopFiles
-    NextFile -- No --> Unlock[Unlock Repository]
-    Unlock --> Finish[Cleanup and Exit]
-```
+Resolution risk posture is configurable per command, per path, and per team via `.gitresolve/policy.json`. Profiles range from `strict` (maximum escalation, minimum risk) to `aggressive` (maximum automation for low-risk paths).
 
 ---
 
@@ -150,81 +99,271 @@ flowchart TD
 
 | Command | Description |
 | :--- | :--- |
-| `gitresolve resolve` | Resolves remaining conflicts interactively or via automation. |
-| `gitresolve resolve --non-interactive` | Fails on manual resolution requirements; suitable for CI pipelines. |
-| `gitresolve resolve --strategy <ours/theirs/both>` | Applies a specific strategy to all remaining automated conflicts. |
-| `gitresolve resolve --timeout <duration>`| Auto-selects their-side resolution after timeout (e.g. 30s). |
-| `gitresolve resolve --dry-run` | Shows what would happen without writing any file or acquiring the lock. |
-| `gitresolve scan --target <branch>` | Predicts conflicts against a target branch using modern git merge-tree. |
-| `gitresolve status` | Displays block-level severity and auto-resolution status. |
-| `gitresolve blame` | Shows resolution history for audits. |
-| `gitresolve blame --patterns` | Displays conflict pattern analysis for diagnostic metrics. |
-| `gitresolve undo --steps N` | Resets the repository to a recorded snapshot SHA from recent sessions. |
+| `gitresolve resolve` | Resolve conflicts interactively or via automation. |
+| `gitresolve resolve --non-interactive` | Exit with status 1 on any manual resolution requirement. Suitable for CI. |
+| `gitresolve resolve --strategy <ours/theirs/both>` | Apply a fixed strategy to all automatable conflicts. |
+| `gitresolve resolve --policy-profile <auto/strict/balanced/aggressive>` | Apply a risk posture by explicit profile or by `.gitresolve/policy.json` path mapping when set to `auto`. |
+| `gitresolve resolve --dry-run` | Preview decisions without writing files or acquiring the repository lock. |
+| `gitresolve resolve --shadow` | Simulate decisions and record hash-only before/after diffs without writing files. |
+| `gitresolve resolve --timeout <duration>` | Auto-select their-side resolution after the specified duration (e.g. `30s`). |
+| `gitresolve resolve --enforce-gates --manual-rate-gate <percent>` | Fail the run if the manual escalation rate exceeds the specified threshold. |
+| `gitresolve scan --target <branch>` | Predict conflicts against a target branch using `git merge-tree`. |
+| `gitresolve merge --policy-profile <profile>` | Apply policy-based auto-resolution posture during merge execution. |
+| `gitresolve stats` | Report decision metrics and top reason codes from local observability logs. |
+| `gitresolve stats --operation <all/resolve/merge>` | Filter stats by operation type. |
+| `gitresolve stats --json` | Emit stats as JSON for CI consumption. |
+| `gitresolve stats --top <N>` | Show the top N escalation reason codes. |
+| `gitresolve status` | Display block-level conflict severity and auto-resolution status per file. |
+| `gitresolve blame` | Show resolution history for audits. |
+| `gitresolve blame --patterns` | Display conflict pattern frequency analysis. |
+| `gitresolve undo --steps <N>` | Reset the repository to a recorded snapshot SHA from a recent session. |
 
-## Reliability and Safety
-Each operation is protected by a multi-layered locking system using PID verification. Atomic writes and original file backups ensure the repository state can be recovered from any interrupted session. All history is stored in a local SQLite database capped at 1000 records to maintain performance.
+---
 
-## Recent Updates (April 2026)
+## Policy Profiles
 
-### 1. Symmetric Brace Recovery for Malformed Conflict Markers
-Conflict parsing now handles malformed Git marker output on both sides of a block:
+Policy profiles tune resolution risk posture per team and per path without requiring per-command flags.
 
-1. **THEIRS trailing token recovery**: after `>>>>>>>`, if THEIRS brace depth is still open, parser consumes following lines into THEIRS until depth balances.
-2. **OURS trailing token recovery**: after reading `=======`, if OURS is still open and the line immediately before `<<<<<<<` is a standalone `}` (or whitespace + `}`), that line is moved from pre-block lines into OURS.
+| Profile | Behavior |
+| :--- | :--- |
+| `strict` | Maximum escalation. Blocks `Both` for all source files. Suitable for critical paths (auth, payments, migrations). |
+| `balanced` | Default posture. Escalates on type conflicts and unbalanced struct changes. |
+| `aggressive` | Maximum automation. Suitable for generated code, documentation, or low-risk paths. |
+| `auto` | Resolved from `.gitresolve/policy.json` by longest path match, then team ownership, then default. |
 
-### 2. Safe `[B]oth` Reconstruction for Asymmetric Blocks
-When selecting `both`, if either side remains brace-unbalanced after recovery, `gitresolve` no longer errors immediately. It reconstructs a syntactically complete merge by:
+### Configuration Example
 
-1. taking OURS as-is,
-2. appending `}` if OURS remains open,
-3. inserting a blank separator line,
-4. taking THEIRS as-is,
-5. appending `}` if THEIRS remains open.
+Create `.gitresolve/policy.json` at the repository root:
 
-### 3. Pre-write Full-file Go Syntax Validation
-Before writing reconstructed `.go` output, the resolver validates the complete file using Go parser checks. If validation fails, write is skipped and conflict handling escalates to manual with reason:
+```json
+{
+  "default": "balanced",
+  "path_profiles": {
+    "internal/auth/": "strict",
+    "internal/payments/": "strict",
+    "docs/": "aggressive"
+  },
+  "team_profiles": {
+    "security": "strict",
+    "frontend": "aggressive"
+  }
+}
+```
 
-`reconstructed output failed Go syntax validation`
+To preview which profile applies to a given file:
 
-### 4. Fixture Isolation for Standard Go Verification
-Go fixture files under `tests/` that intentionally contain invalid or non-buildable code are now tagged with:
+```bash
+gitresolve resolve --policy-profile auto --dry-run internal/auth/handler.go
+```
 
-`//go:build ignore`
+---
 
-This keeps fixture content available for byte-level test inputs while preventing those files from breaking standard repository checks such as `go build ./...`, `go vet ./...`, and `go test ./...`.
+## Observability and Stats
 
-### 5. Decision Observability and Stable Reason Codes
-Conflict escalation now includes machine-readable reason codes with a stable, additive contract (namespaced values such as `parser.*`, `semantic.*`, `strategy.*`, `validation.*`).
+All decisions are stored in a local SQLite database capped at 1000 records. Query them at any time:
 
-The resolver persists structured decision events to local SQLite (`decision_logs`) so teams can audit:
+```bash
+gitresolve stats --json
+```
 
-1. conflict type and severity,
-2. selected action (`auto-resolve`, `manual-escalate`, `shadow-diff`, etc.),
-3. reason code and human-readable reason,
-4. confidence and operation context.
+Example output:
 
-### 6. Shadow Mode with Hash-based Diff Recording
-Both `resolve` and `merge` now support simulation mode via:
+```json
+{
+  "total_decisions": 47,
+  "auto_resolved": 31,
+  "escalated_to_manual": 16,
+  "escalation_rate": 0.34,
+  "top_escalation_reasons": [
+    { "reason": "semantic.field_type_conflict", "count": 9 },
+    { "reason": "validation.go_syntax_failed", "count": 4 },
+    { "reason": "parser.malformed_marker", "count": 3 }
+  ]
+}
+```
 
-`--shadow`
+Reason codes follow a stable, additive contract. Existing codes are never renamed or removed between releases. New codes are added under existing namespaces:
 
-In shadow mode, no file write occurs. Instead, the engine records deterministic before/after content hashes (original vs simulated output) to estimate blast radius safely before enforcement.
+- `parser.*` for marker-level parsing failures
+- `semantic.*` for type, field, or signature conflicts
+- `strategy.*` for policy and strategy enforcement decisions
+- `validation.*` for pre-write syntax and structural validation failures
 
-### 7. Release Gates for Operational Safety
-For policy-controlled environments, commands support:
+---
 
-1. `--enforce-gates`
-2. `--manual-rate-gate <percent>`
+## CI Integration
 
-Current hard safety gate remains active: validation failures cause non-zero exit. Optional manual escalation-rate gating can now fail runs when operational thresholds are exceeded.
+### Non-Interactive Mode
 
-### 8. Capability-aware Semantic Guarding
-Semantic handling is now gated by parser capability availability, not extension label alone. If semantic parsing support is unavailable in the current runtime, the conflict is escalated with an explicit reason code (`semantic.parse_failed`) rather than attempting unsafe logic.
+```bash
+gitresolve resolve --non-interactive --timeout 1m
+```
 
-### 9. Hardening Test Expansion
-The test suite now includes additional safety-oriented coverage:
+Exits with status 1 if any conflict requires manual resolution, making it safe to use as a pipeline gate.
 
-1. **Fuzz oracle tests** for parser/resolution invariants and corruption guards.
-2. **Idempotency tests** to ensure repeated resolution is stable.
-3. **Strategy consistency tests** to prevent cross-strategy contamination.
-4. **Corpus deduplication tests** using normalized conflict fingerprints to keep large real-world corpora efficient and signal-rich.
+### Escalation Rate Gating
+
+Fail a CI job if manual escalation exceeds a defined threshold:
+
+```bash
+gitresolve resolve --enforce-gates --manual-rate-gate 30
+```
+
+Or query the stats output directly:
+
+```bash
+gitresolve stats --json | jq 'if .escalation_rate > 0.4 then error("escalation rate too high") else . end'
+```
+
+### GitHub Actions Example
+
+```yaml
+- name: Resolve merge conflicts
+  run: |
+    gitresolve resolve --non-interactive --policy-profile auto --timeout 2m
+
+- name: Check escalation rate
+  run: |
+    gitresolve stats --json | jq 'if .escalation_rate > 0.35 then error("manual escalation rate exceeded threshold") else . end'
+```
+
+---
+
+## Architecture
+
+The resolution pipeline executes locally with no external API dependencies.
+
+```mermaid
+flowchart TD
+    Start[Trigger Resolve] --> Lock[Acquire Repository Lock]
+    Lock --> Identify[Identify Conflicted Files]
+    Identify --> Loop{For Each File}
+
+    Loop --> Parse[Parse Conflict Markers]
+    Parse --> Recover[Symmetric Brace Recovery]
+    Recover --> Classify[AST and Heuristic Classification]
+
+    Classify --> Config{Config File?}
+    Config -- Yes --> DeepMerge[Deep Map Merge]
+    DeepMerge --> Validate
+
+    Config -- No --> Safe{Safe Text Change?}
+    Safe -- Yes --> AutoResolve[Auto-merge Imports / Whitespace]
+    AutoResolve --> Validate
+
+    Safe -- No --> Risk{High-risk Semantic?}
+    Risk -- Yes --> Escalate[Escalate to Manual + Log Reason Code]
+    Risk -- No --> Strategy[Apply Strategy via Policy Profile]
+    Strategy --> Validate
+
+    Validate[Pre-write Syntax Validation] --> Pass{Valid?}
+    Pass -- No --> Escalate
+    Pass -- Yes --> Write[Atomic Write + Git Stage]
+
+    Write --> Log[Persist Decision to SQLite]
+    Escalate --> Log
+    Log --> Next{More Files?}
+    Next -- Yes --> Loop
+    Next -- No --> Unlock[Release Lock]
+    Unlock --> Done[Exit]
+```
+
+---
+
+## Testing
+
+### Tiered Test Suite
+
+The test suite validates resolution accuracy across four severity levels:
+
+| Level | Coverage |
+| :--- | :--- |
+| 1 - Easy | Whitespace normalization, identical dual-sided modifications, Go import deduplication. |
+| 2 - Medium | JSON deep object merging, YAML array overlaps, `go.mod` require block conflicts. |
+| 3 - Hard | Complex `package.json` script updates, delete-vs-modify conflicts, multi-file batch resolution. |
+| 4 - Severe | AST parsing resilience under malformed input, concurrent lock contention, database migration file consistency. |
+
+### Safety-Oriented Coverage
+
+Beyond functional correctness, the suite includes:
+
+- **Fuzz oracle tests** for parser and resolution invariants and corruption guards.
+- **Idempotency tests** to ensure repeated resolution runs produce identical output.
+- **Strategy consistency tests** to prevent cross-strategy contamination.
+- **Corpus deduplication tests** using normalized conflict fingerprints to keep real-world regression sets efficient and signal-rich.
+- **Regression coverage** for malformed marker behavior, brace recovery paths, and high-risk `Both` blocking.
+
+```bash
+go test ./...
+```
+
+---
+
+## Evidence and Limitations
+
+`gitresolve` is currently best described as an early-beta, safety-oriented resolver with production-grade architectural direction.
+
+### What the tool does well
+
+- Applies deterministic processing pipelines for known conflict classes: classification, strategy selection, pre-write verification.
+- Uses full-file Go syntax validation before any write operation.
+- Provides explicit manual escalation paths with machine-readable reason codes rather than forcing risky auto-resolution.
+- Records structured decision telemetry for auditability, pattern analysis, and iterative hardening.
+
+### Current limitations
+
+- Semantic correctness is not guaranteed even when syntax validation passes. Passing compilation is a necessary but not sufficient condition for correctness.
+- AST and parser capability is language- and environment-dependent. Unsupported languages escalate with explicit reason codes rather than attempting unsafe resolution.
+- Heuristic recovery paths for malformed markers prioritize safe fallback and may still require manual review.
+- Real-world robustness is dependent on repository style, language mix, and conflict shape diversity. Published metrics will be added as corpus coverage grows.
+
+### Recommended usage posture
+
+- Treat auto-resolution as an acceleration layer, not a replacement for developer review.
+- Always run builds and tests after resolution in CI workflows.
+- Use `--shadow` and decision logs to evaluate risk before enabling stricter enforcement gates.
+
+---
+
+## Readiness Gates
+
+To move from early-beta toward production-grade confidence, use explicit measurable gates.
+
+### Active operational gates
+
+- Validation failures are hard-fail conditions with non-zero exit.
+- Optional manual escalation-rate gating via `--enforce-gates` and `--manual-rate-gate <percent>`.
+
+### Suggested release progression
+
+| Gate | Condition |
+| :--- | :--- |
+| Beta | Validation failure rate is zero across sustained CI runs. |
+| Release Candidate | Stable manual escalation rate trend over a defined observation window with no data-corruption incidents. |
+| Production | Corpus coverage and regression targets met. Real-world resolution metrics published. |
+
+---
+
+## Comparative Positioning
+
+`gitresolve` is positioned as a local-first, safety-oriented conflict resolution layer on top of standard Git workflows. It is not a visual merge tool and does not require an IDE or external AI API.
+
+### Relative strengths
+
+- Conservative escalation by default: prefers a logged escalation over a silent wrong resolution.
+- Structured-data merge support across JSON, YAML, and TOML with conservative array handling.
+- CI-oriented operational controls: `--non-interactive`, `--timeout`, `--shadow`, `--enforce-gates`.
+- Full local execution with no network dependency or API key requirement.
+- Built-in observability via decision logs, stable reason codes, and the `stats` command.
+
+### Known tradeoffs
+
+- Semantic strategies are intentionally conservative and will escalate more conflicts than tools that optimize for automation rate over safety.
+- Language breadth is still evolving. Go support is the most mature.
+- Some conflicts will remain manual by design. This is a feature, not a gap.
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
