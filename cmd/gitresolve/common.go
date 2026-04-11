@@ -162,10 +162,14 @@ func policyBlocksBothForFile(policy, filePath string) bool {
 		return false
 	}
 	ext := strings.ToLower(filepath.Ext(filePath))
-	switch ext {
-	case ".go", ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".kt", ".rb", ".php", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".swift":
-		return true
-	default:
-		return false
+	for _, sourceExt := range strictPolicySourceLikeExtensions() {
+		if ext == sourceExt {
+			return true
+		}
 	}
+	return false
+}
+
+func strictPolicySourceLikeExtensions() []string {
+	return []string{".go", ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".kt", ".rb", ".php", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".swift"}
 }

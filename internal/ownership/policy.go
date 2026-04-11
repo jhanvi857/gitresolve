@@ -20,6 +20,14 @@ type PolicyConfig struct {
 	TeamProfiles   map[string]string `json:"team_profiles"`
 }
 
+type PolicyResolution struct {
+	RequestedProfile string `json:"requested_profile"`
+	ResolvedProfile  string `json:"resolved_profile"`
+	Source           string `json:"source"`
+	MatchedPath      string `json:"matched_path,omitempty"`
+	MatchedTeam      string `json:"matched_team,omitempty"`
+}
+
 func IsValidPolicyProfile(profile string) bool {
 	switch strings.ToLower(strings.TrimSpace(profile)) {
 	case PolicyAuto, PolicyStrict, PolicyBalanced, PolicyAggressive:
@@ -79,14 +87,26 @@ func LoadPolicyConfig(repoPath string) (*PolicyConfig, error) {
 }
 
 func ResolvePolicyProfile(repoPath, filePath, explicitProfile string) (string, error) {
-	explicit := normalizePolicyProfile(explicitProfile)
-	if explicit != PolicyAuto {
-		return explicit, nil
+	resolution, err := ResolvePolicy(repoPath, filePath, explicitProfile)
+	if err != nil {
+		return "", err
+	}
+	return resolution.ResolvedProfile, nil
+}
+
+func ResolvePolicy(repoPath, filePath, explicitProfile string) (*PolicyResolution, error) {
+	requested := normalizePolicyProfile(explicitProfile)
+	if requested != PolicyAuto {
+		return &PolicyResolution{
+			RequestedProfile: requested,
+			ResolvedProfile:  requested,
+			Source:           "explicit",
+		}, nil
 	}
 
 	cfg, err := LoadPolicyConfig(repoPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	bestPrefix := ""
@@ -98,19 +118,33 @@ func ResolvePolicyProfile(repoPath, filePath, explicitProfile string) (string, e
 		}
 	}
 	if selected != "" {
-		return selected, nil
+		return &PolicyResolution{
+			RequestedProfile: requested,
+			ResolvedProfile:  selected,
+			Source:           "path",
+			MatchedPath:      bestPrefix,
+		}, nil
 	}
 
 	owners, err := LoadConfig(repoPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	team := CheckOwnership(owners, filePath)
 	if team != "" {
-		if p, ok := cfg.TeamProfiles[team]; ok {
-			return p, nil
+		if profile, ok := cfg.TeamProfiles[team]; ok {
+			return &PolicyResolution{
+				RequestedProfile: requested,
+				ResolvedProfile:  profile,
+				Source:           "team",
+				MatchedTeam:      team,
+			}, nil
 		}
 	}
 
-	return cfg.DefaultProfile, nil
+	return &PolicyResolution{
+		RequestedProfile: requested,
+		ResolvedProfile:  cfg.DefaultProfile,
+		Source:           "default",
+	}, nil
 }
