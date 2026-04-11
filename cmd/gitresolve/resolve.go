@@ -9,6 +9,7 @@ import (
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/ownership"
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
@@ -24,6 +25,7 @@ var resolveTimeout time.Duration
 var resolveShadow bool
 var resolveEnforceGates bool
 var resolveManualRateGate float64
+var resolvePolicyProfile string
 
 var resolveCmd = &cobra.Command{
 	Use:   "resolve",
@@ -109,8 +111,34 @@ var resolveCmd = &cobra.Command{
 				totalDecisions++
 				logger.Debug(fmt.Sprintf("conflict block parsed: file=%s start=%d end=%d ours=%d theirs=%d", file, c.StartLine, c.EndLine, len(c.OursLines), len(c.TheirsLines)))
 				conflict.Classify(c)
+
+				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(repoPath, file, resolvePolicyProfile)
+				if policyErr != nil {
+					fmt.Printf("Warning: policy resolution failed for %s: %v (falling back to balanced)\n", file, policyErr)
+					resolvedPolicy = ownership.PolicyBalanced
+				}
+				if strategy == conflict.StrategyBoth && policyBlocksBothForFile(resolvedPolicy, file) {
+					manualEscalations++
+					conflict.SetManualEscalation(c, conflict.ReasonStrategyBothBlockedRisk, "BOTH disabled by strict policy profile for source file", "use ours/theirs/manual under strict policy")
+					if dbErr == nil {
+						_ = db.SaveDecision(store.DecisionRecord{
+							RepoPath:     repoPath,
+							FilePath:     file,
+							Operation:    "resolve",
+							ConflictType: typeLabel(c.Type),
+							Severity:     severityLabel(c.Severity),
+							Action:       "manual-escalate",
+							ReasonCode:   reasonCodeOrUnknown(c),
+							Reason:       c.ManualReason,
+							Confidence:   c.Confidence,
+							Shadow:       resolveShadow,
+						})
+					}
+					fileSkipped = true
+					continue
+				}
 				isAuto := false
-				if conflict.ShouldAutoApply(c) {
+				if shouldAutoApplyWithPolicy(c, resolvedPolicy) {
 					isAuto = true
 				} else {
 					if conflict.NeedsGuidedChoice(c) {
@@ -363,6 +391,7 @@ func init() {
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dry-run", false, "show what would happen without writing")
 	resolveCmd.Flags().BoolVar(&resolveDryRun, "dryrun", false, "alias for --dry-run")
 	resolveCmd.Flags().BoolVar(&resolveShadow, "shadow", false, "simulate resolution and record hash-only diff decisions without writing")
+	resolveCmd.Flags().StringVar(&resolvePolicyProfile, "policy-profile", ownership.PolicyAuto, "policy profile: auto|strict|balanced|aggressive")
 	resolveCmd.Flags().BoolVar(&resolveNonInteractive, "non-interactive", false, "fail on conflicts requiring manual resolution instead of prompting")
 	resolveCmd.Flags().BoolVar(&resolveEnforceGates, "enforce-gates", false, "enforce release gate thresholds (manual rate and validation failures)")
 	resolveCmd.Flags().Float64Var(&resolveManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/ownership"
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
@@ -19,6 +20,7 @@ var noAutoStructured bool
 var mergeShadow bool
 var mergeEnforceGates bool
 var mergeManualRateGate float64
+var mergePolicyProfile string
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
@@ -88,7 +90,13 @@ var mergeCmd = &cobra.Command{
 			for _, c := range conflicts {
 				totalDecisions++
 				conflict.Classify(c)
-				if conflict.ShouldAutoApply(c) {
+				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(repoPath, file, mergePolicyProfile)
+				if policyErr != nil {
+					fmt.Printf("Warning: policy resolution failed for %s: %v (falling back to balanced)\n", file, policyErr)
+					resolvedPolicy = ownership.PolicyBalanced
+				}
+
+				if shouldAutoApplyWithPolicy(c, resolvedPolicy) {
 					resolved := conflict.AutoResolve(c, conflict.Options{
 						NoAutoStructured: noAutoStructured,
 					})
@@ -249,6 +257,7 @@ func init() {
 	mergeCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would happen without writing")
 	mergeCmd.Flags().BoolVar(&dryRun, "dryrun", false, "alias for --dry-run")
 	mergeCmd.Flags().BoolVar(&mergeShadow, "shadow", false, "simulate resolution and record hash-only diff decisions without writing")
+	mergeCmd.Flags().StringVar(&mergePolicyProfile, "policy-profile", ownership.PolicyAuto, "policy profile: auto|strict|balanced|aggressive")
 	mergeCmd.Flags().BoolVar(&noAutoStructured, "no-auto-structured", false, "disable auto-resolution for structured files (JSON/YAML/TOML)")
 	mergeCmd.Flags().BoolVar(&mergeEnforceGates, "enforce-gates", false, "enforce release gate thresholds (manual rate and validation failures)")
 	mergeCmd.Flags().Float64Var(&mergeManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")

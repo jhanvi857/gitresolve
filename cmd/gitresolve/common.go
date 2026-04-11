@@ -12,6 +12,7 @@ import (
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/ownership"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	"github.com/jhanvi857/gitresolve/pkg/logger"
 )
@@ -140,4 +141,31 @@ func reasonCodeOrUnknown(c *conflict.ConflictBlock) string {
 		return c.ManualReasonCode
 	}
 	return conflict.ReasonDecisionUnknown
+}
+
+func shouldAutoApplyWithPolicy(c *conflict.ConflictBlock, policy string) bool {
+	switch strings.ToLower(policy) {
+	case ownership.PolicyStrict:
+		if c.Type != conflict.TypeWhitespace && c.Type != conflict.TypeIdentical {
+			return false
+		}
+		return c.CanAutoResolve && c.Confidence >= conflict.AutoResolveConfidenceThreshold
+	case ownership.PolicyAggressive:
+		return c.CanAutoResolve && c.Confidence >= 0.70
+	default:
+		return conflict.ShouldAutoApply(c)
+	}
+}
+
+func policyBlocksBothForFile(policy, filePath string) bool {
+	if strings.ToLower(policy) != ownership.PolicyStrict {
+		return false
+	}
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".go", ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".kt", ".rb", ".php", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".swift":
+		return true
+	default:
+		return false
+	}
 }
