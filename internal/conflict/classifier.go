@@ -10,7 +10,6 @@ import (
 
 const (
 	AutoResolveConfidenceThreshold = 0.80
-	GuidedChoiceConfidenceFloor    = 0.55
 )
 
 func Classify(c *ConflictBlock) {
@@ -161,10 +160,6 @@ func Classify(c *ConflictBlock) {
 
 func ShouldAutoApply(c *ConflictBlock) bool {
 	return c.CanAutoResolve && c.Confidence >= AutoResolveConfidenceThreshold
-}
-
-func NeedsGuidedChoice(c *ConflictBlock) bool {
-	return !ShouldAutoApply(c) && c.Confidence >= GuidedChoiceConfidenceFloor
 }
 
 func isScalarChange(ours, theirs []string) bool {

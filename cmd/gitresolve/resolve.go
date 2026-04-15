@@ -141,9 +141,6 @@ var resolveCmd = &cobra.Command{
 				if shouldAutoApplyWithPolicy(c, resolvedPolicy) {
 					isAuto = true
 				} else {
-					if conflict.NeedsGuidedChoice(c) {
-						fmt.Printf("Guided choice: %s L%d-%d [confidence=%.2f]. Suggested strategy: ours|theirs|both\n", file, c.StartLine, c.EndLine, c.Confidence)
-					}
 					if c.ManualReason != "" {
 						fmt.Printf("  reason: %s\n", c.ManualReason)
 					}

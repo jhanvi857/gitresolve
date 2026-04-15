@@ -81,9 +81,6 @@ func Resolve(c *ConflictBlock, strategy Strategy, opts ResolveOptions) (ResolveR
 		}
 
 		printConflictForChoice(c)
-		if c.Confidence > 0 {
-			fmt.Printf("Suggested option: %s (confidence %.2f)\n", suggestedChoice(c), c.Confidence)
-		}
 		if c.ManualReason != "" {
 			fmt.Printf("Reason: %s\n", c.ManualReason)
 		}
@@ -199,22 +196,6 @@ func normalizeChoice(input string) string {
 		return "S"
 	default:
 		return ""
-	}
-}
-
-func suggestedChoice(c *ConflictBlock) string {
-	switch c.Type {
-	case TypeWhitespace, TypeIdentical:
-		return "[O]urs"
-	case TypeImport, TypeStructured:
-		return "[B]oth"
-	case TypeDeleteModify:
-		return "[T]heirs"
-	default:
-		if c.Confidence >= 0.75 {
-			return "[B]oth"
-		}
-		return "[T]heirs"
 	}
 }
 
