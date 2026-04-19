@@ -32,8 +32,8 @@ var scanCmd = &cobra.Command{
 		fmt.Printf("Scanning for potential conflicts against %s...\n", targetBranch)
 
 		resolvedTarget := targetBranch
-		// Use "--" to prevent flag injection via branch names
-		if _, err := runGit("rev-parse", "--verify", "--", targetBranch); err != nil {
+		// Use rev-parse to verify the branch exists. No "--" before the target to ensure it is treated as a ref.
+		if _, err := runGit("rev-parse", "--verify", targetBranch); err != nil {
 			fmt.Printf("Target ref '%s' not found. Falling back to HEAD.\n", targetBranch)
 			resolvedTarget = "HEAD"
 		}
