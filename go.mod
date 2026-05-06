@@ -1,6 +1,6 @@
 module github.com/jhanvi857/gitresolve
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/pelletier/go-toml/v2 v2.3.0
@@ -13,7 +13,7 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/cloudflare/circl v1.6.1 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -40,7 +40,7 @@ require (
 )
 
 require (
-	github.com/go-git/go-git/v5 v5.17.0
+	github.com/go-git/go-git/v5 v5.17.1
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	// go-tree-sitter: CGo binding to tree-sitter C library.
@@ -48,6 +48,6 @@ require (
 	// Upgrade checklist: review open issues, run govulncheck, run full test suite.
 	// Last reviewed: 2026-05-05
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
 )
