@@ -1,6 +1,30 @@
 package store
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+const defaultConflictRetentionCap = 1000
+
+var retentionWarningOnce sync.Once
+
+func conflictRetentionCap() int {
+	v := strings.TrimSpace(os.Getenv("GITRESOLVE_DB_CONFLICT_CAP"))
+	if v == "" {
+		return defaultConflictRetentionCap
+	}
+
+	capValue, err := strconv.Atoi(v)
+	if err != nil || capValue < 0 {
+		return defaultConflictRetentionCap
+	}
+
+	return capValue
+}
 
 type ConflictRecord struct {
 	RepoPath     string
@@ -20,15 +44,28 @@ func (db *DB) SaveConflict(r ConflictRecord) error {
 		return fmt.Errorf("SaveConflict: %w", err)
 	}
 
-	// Housekeeping: Cap at 1000 records per repo to prevent unbounded growth
-	_, _ = db.conn.Exec(`
+	capValue := conflictRetentionCap()
+	if capValue == 0 {
+		return nil
+	}
+
+	// Housekeeping: Cap per-repo history to prevent unbounded growth.
+	pruneResult, _ := db.conn.Exec(`
 		DELETE FROM conflicts 
 		WHERE id IN (
 			SELECT id FROM conflicts 
 			WHERE repo_path = ? 
 			ORDER BY resolved_at DESC 
-			LIMIT -1 OFFSET 1000
-		)`, r.RepoPath)
+			LIMIT -1 OFFSET ?
+		)`, r.RepoPath, capValue)
+
+	if pruneResult != nil {
+		if prunedCount, rowsErr := pruneResult.RowsAffected(); rowsErr == nil && prunedCount > 0 {
+			retentionWarningOnce.Do(func() {
+				fmt.Fprintf(os.Stderr, "Warning: pruned %d conflict history rows (retention cap=%d, override with GITRESOLVE_DB_CONFLICT_CAP).\n", prunedCount, capValue)
+			})
+		}
+	}
 
 	return nil
 }
