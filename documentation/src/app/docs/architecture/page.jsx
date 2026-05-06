@@ -9,61 +9,120 @@ export default function Architecture() {
       title="Architecture"
       subtitle="How gitresolve handles conflicts without a centralized brain."
     >
-      <div className="space-y-12">
+      <div className="space-y-16">
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">Core Principles</h2>
           <p className="text-gray-400 leading-relaxed mb-6">
-            gitresolve is built on the principle of <strong>Deterministic Resolution</strong>. Unlike AI-based tools that might provide different answers for the same input, gitresolve uses a fixed engine with zero side effects.
+            gitresolve is built on the principle of <strong>Local Determinism</strong>. Every resolution is produced by a fixed pipeline of rule-based engines that require zero network access and provide bit-identical results for the same input.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-lg bg-[#0a0a0a] border border-[#222]">
-              <h3 className="text-white font-medium mb-2">AST Analysis</h3>
-              <p className="text-sm text-gray-500">Instead of lines of text, we see structures. This allows us to safely merge import blocks and detect function signature changes.</p>
-            </div>
-            <div className="p-6 rounded-lg bg-[#0a0a0a] border border-[#222]">
-              <h3 className="text-white font-medium mb-2">Safety First</h3>
-              <p className="text-sm text-gray-500">Every resolution is verified against the language's grammar. If it doesn't parse, it doesn't merge.</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <FeatureCard 
+               title="AST Integration" 
+               desc="Instead of line diffs, we see syntax trees. This allows safe merging of unordered blocks like Go imports or Java annotations."
+            />
+            <FeatureCard 
+               title="Rooted IO Sandbox" 
+               desc="Mandatory os.Root sandboxing for all file operations (CWE-22 mitigation). IO is mathematically restricted to the repository root."
+            />
+            <FeatureCard 
+               title="Pre-write Validation" 
+               desc="No resolution is written to disk unless it passes the language parser. Syntax errors trigger immediate manual escalation."
+            />
+            <FeatureCard 
+               title="Audit Persistence" 
+               desc="Every decision is recorded in a namespaced log, making it possible to query 'why' every resolution occurred months later."
+            />
           </div>
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-4">The Pipeline</h2>
-          <div className="relative pl-8 border-l border-[#222] space-y-8">
-            <div className="relative">
-              <div className="absolute -left-[37px] top-1 w-4 h-4 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-              <h4 className="text-white font-medium mb-1">1. Block Identification</h4>
-              <p className="text-sm text-gray-500">Regex-based scanning identifying {"<<<<<<<"}, {"======="}, and {">>>>>>>"} markers.</p>
-            </div>
-            <div className="relative">
-              <div className="absolute -left-[37px] top-1 w-4 h-4 rounded-full bg-[#333]"></div>
-              <h4 className="text-white font-medium mb-1">2. Heuristic Classification</h4>
-              <p className="text-sm text-gray-500">Categorizing blocks into: Whitespace, Identical, Imports, Structured, or Logic.</p>
-            </div>
-            <div className="relative">
-              <div className="absolute -left-[37px] top-1 w-4 h-4 rounded-full bg-[#333]"></div>
-              <h4 className="text-white font-medium mb-1">3. Semantic Resolution</h4>
-              <p className="text-sm text-gray-500">Applying language-specific rules (e.g., Go AST import deduplication).</p>
-            </div>
-            <div className="relative">
-              <div className="absolute -left-[37px] top-1 w-4 h-4 rounded-full bg-[#333]"></div>
-              <h4 className="text-white font-medium mb-1">4. Verification Gate</h4>
-              <p className="text-sm text-gray-500">Running the language parser (e.g., `go/parser`) on the resulting code snippet.</p>
-            </div>
+          <div className="flex items-center gap-4 mb-8">
+            <h2 className="text-xl font-semibold text-white">The Resolution Pipeline</h2>
+            <div className="h-px flex-1 bg-[#222]"></div>
+          </div>
+          
+          <div className="space-y-4">
+            <PipeStep 
+              num="01" 
+              title="Symmetric Marker Identification" 
+              desc="Scanning for conflict markers with active brace-balance recovery. If markers are malformed or nested improperly, we escalate immediately." 
+              active
+            />
+            <PipeStep 
+              num="02" 
+              title="Heuristic Classification" 
+              desc="The engine categorizes the block: TypeIdentical, TypeWhitespace, TypeImport, TypeStructured, or TypeScalar." 
+            />
+            <PipeStep 
+              num="03" 
+              title="Policy-Injected Routing" 
+              desc="Active Policy Profiles (strict/aggressive) modify the confidence threshold required to proceed with automation." 
+            />
+            <PipeStep 
+              num="04" 
+              title="Semantic Strategy Execution" 
+              desc="Running the actual merge logic. For structured files, this is a deep recursive map merge. For code, it's an AST transformation." 
+            />
+            <PipeStep 
+              num="05" 
+              title="Post-Resolution Syntax Gate" 
+              desc="The final check. We run the native language compiler/parser on the 'merged' result. If valid, we write. If invalid, we roll back." 
+            />
           </div>
         </section>
 
-        {/* IMAGE PLACEHOLDER 1 */}
         <section className="pt-10">
-          <div className="w-full aspect-video rounded-xl border-2 border-dashed border-[#222] bg-[#050505] flex flex-col items-center justify-center text-center p-10">
-            <div className="w-16 h-16 rounded-full bg-[#111] flex items-center justify-center mb-4 text-gray-600">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-            </div>
-            <p className="text-white font-medium mb-1">Architecture Visualization Placeholder</p>
-            <p className="text-sm text-gray-500 max-w-xs">Detailed diagram of the deterministic engine resolving a complex Go import conflict across three branches.</p>
-          </div>
+           <div className="flex items-center gap-4 mb-8">
+              <h2 className="text-xl font-semibold text-white">Engine Deep Dive</h2>
+              <div className="h-px flex-1 bg-[#222]"></div>
+           </div>
+           <div className="p-2 rounded-2xl bg-[#0a0a0a] border border-[#222] overflow-hidden group">
+              <img 
+                src="/architecture.png" 
+                alt="Gitresolve System Architecture" 
+                className="w-full rounded-xl opacity-90 group-hover:opacity-100 transition-opacity"
+              />
+              <div className="p-6 bg-black">
+                <p className="text-xs text-gray-500 leading-relaxed italic text-center">
+                  Visual breakdown of the deterministic resolution engine: from marker identification to post-resolution syntax validation.
+                </p>
+              </div>
+           </div>
+        </section>
+
+        <section className="pt-10 pb-20">
+           <h2 className="text-xl font-semibold text-white mb-6">Structured Data Engine</h2>
+           <div className="p-8 rounded-2xl bg-[#050505] border border-[#1a1a1a] relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+              <p className="text-sm text-gray-500 leading-relaxed relative z-10">
+                For JSON, YAML, and TOML, gitresolve bypasses line-based text merging entirely. It parses both sides into memory, performs a 3-way recursive object merge including <strong>conservative array unioning</strong>, and re-serializes the result. This prevents common errors where merging two objects results in an invalid JSON comma or duplicated keys.
+              </p>
+           </div>
         </section>
       </div>
     </DocsShell>
+  );
+}
+
+function FeatureCard({ title, desc }) {
+  return (
+    <div className="p-6 rounded-xl bg-[#0a0a0a] border border-[#222] hover:border-[#333] transition-colors">
+      <h3 className="text-white font-medium mb-2 text-sm">{title}</h3>
+      <p className="text-[12px] text-gray-500 leading-relaxed">{desc}</p>
+    </div>
+  );
+}
+
+function PipeStep({ num, title, desc, active }) {
+  return (
+    <div className={`p-6 rounded-xl border transition-all ${active ? 'bg-blue-600/5 border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.05)]' : 'bg-[#080808] border-[#1a1a1a]'}`}>
+      <div className="flex gap-6">
+        <span className={`font-mono text-[10px] font-bold mt-1 ${active ? 'text-blue-500' : 'text-gray-700'}`}>{num}</span>
+        <div>
+          <h4 className={`text-sm font-semibold mb-2 ${active ? 'text-white' : 'text-gray-400'}`}>{title}</h4>
+          <p className="text-xs text-gray-500 leading-relaxed max-w-2xl">{desc}</p>
+        </div>
+      </div>
+    </div>
   );
 }

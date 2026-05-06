@@ -118,21 +118,21 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <FeatureCard
                 index={0}
-                title="Zero Dependencies"
-                description="Resolving conflicts via remote APIs is a security nightmare. Our engine runs 100% locally using tree-sitter based AST logic."
+                title="CWE-22 Hardened"
+                description="Zero-dependency local execution. Mandates os.Root sandboxing to ensure every file operation is isolated within your repository root."
                 icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>}
               />
               <FeatureCard
                 index={1}
-                title="AST Intelligence"
-                description="Detects semantic overlaps and structural mismatches. Perfectly handles duplicate imports and non-conflicting schema shifts."
-                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>}
+                title="DoS Defenses"
+                description="A mandatory 10MB file size gate prevents resource exhaustion attacks. Large or malicious conflict files are safely escalated."
+                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>}
               />
               <FeatureCard
                 index={2}
-                title="Atomic Reliability"
-                description="Leverages POSIX atomic writes and a local SQLite session log. Revert any state change with a single command."
-                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>}
+                title="Supply Chain Secure"
+                description="Signed via Cosign (OIDC), CycloneDX SBOMs included. Verified releases meeting SLSA Level 2 standards for your CI/CD pipes."
+                icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>}
               />
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function Home() {
               viewport={{ once: true }}
               className="mb-16"
             >
-              <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">Blasing Fast CLI.</h2>
+              <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">Blazing Fast CLI.</h2>
               <p className="text-[16px] text-gray-500">Native performance, zero-dependency binary execution.</p>
             </motion.div>
 
@@ -260,8 +260,8 @@ export default function Home() {
             <h4 className="text-white font-bold mb-8 text-[11px] uppercase tracking-[0.2em] px-2 text-gray-400">Resources</h4>
             <div className="flex flex-col gap-4 text-gray-500 font-medium text-[15px]">
               <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="hover:text-white transition-all transform hover:translate-x-1">Source Code</a>
-              <a href="#" className="hover:text-white transition-all transform hover:translate-x-1">Discord Support</a>
-              <a href="#" className="hover:text-white transition-all transform hover:translate-x-1">Changelog</a>
+              <a href="https://github.com/jhanvi857/gitresolve/discussions" target="_blank" className="hover:text-white transition-all transform hover:translate-x-1">Discord Support</a>
+              <a href="https://github.com/jhanvi857/gitresolve/releases" target="_blank" className="hover:text-white transition-all transform hover:translate-x-1">Changelog</a>
             </div>
           </div>
         </div>
@@ -269,8 +269,8 @@ export default function Home() {
           <p>© 2026 gitresolve. Purely offline resolution.</p>
           <div className="flex gap-12">
             <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="hover:text-white transition-colors">GitHub</a>
-            <a href="#" className="hover:text-white transition-colors">Twitter</a>
-            <a href="#" className="hover:text-white transition-colors">LinkedIn</a>
+            <a href="https://x.com/search?q=gitresolve" target="_blank" className="hover:text-white transition-colors">Twitter</a>
+            <a href="https://www.linkedin.com/search/results/all/?keywords=gitresolve" target="_blank" className="hover:text-white transition-colors">LinkedIn</a>
           </div>
         </div>
       </footer>

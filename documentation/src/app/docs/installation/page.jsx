@@ -68,7 +68,16 @@ export default function Installation() {
           </MacCodeWindow>
         </Step>
 
-        <Step number="4" title="Workspace Setup (Optional)">
+        <Step number="4" title="Security & Integrity">
+          <p className="mb-4">
+            For production environments, verify the integrity of the binary using checksums and Cosign signatures.
+          </p>
+          <MacCodeWindow title="verification">
+            <span className="token-cmd">cosign</span> <span className="token-string">verify-blob</span> <span className="token-flag">--certificate</span> <span className="token-string">checksums.txt.pem</span> <span className="token-flag">--signature</span> <span className="token-string">checksums.txt.sig</span> <span className="token-string">checksums.txt</span>
+          </MacCodeWindow>
+        </Step>
+
+        <Step number="5" title="Workspace Setup (Optional)">
           <p className="mb-4">
             Configure ownership and specialized rules in a <code className="text-white bg-[#111] px-1.5 py-0.5 rounded border border-[#222] text-xs">.gitresolve/owners.json</code> file for enterprise scalability.
           </p>

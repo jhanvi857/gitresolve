@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -9,25 +10,32 @@ import (
 var log zerolog.Logger
 
 func Init(verbose bool) {
-	level := zerolog.InfoLevel
+	level := zerolog.WarnLevel
 	if verbose {
-		level = zerolog.DebugLevel
+		level = zerolog.InfoLevel
 	}
-	log = zerolog.New(os.Stderr).
+	InitWithLevel(level)
+}
+
+func InitWithLevel(level zerolog.Level) {
+	InitWithLevelAndOutput(level, os.Stderr)
+}
+
+func InitWithLevelAndOutput(level zerolog.Level, out io.Writer) {
+	log = zerolog.New(out).
 		With().
 		Timestamp().
 		Logger().
 		Level(level)
 }
 
-func Info(msg string)  { log.Info().Msg(msg) }
-func Debug(msg string) { log.Debug().Msg(msg) }
-func Error(msg string) { log.Error().Msg(msg) }
+func Info() *zerolog.Event  { return log.Info() }
+func Debug() *zerolog.Event { return log.Debug() }
+func Error() *zerolog.Event { return log.Error() }
+func Warn() *zerolog.Event  { return log.Warn() }
+func Trace() *zerolog.Event { return log.Trace() }
 
-func Infof(msg string, fields map[string]any) {
-	e := log.Info()
-	for k, v := range fields {
-		e = e.Interface(k, v)
-	}
-	e.Msg(msg)
-}
+// Legacy helpers for existing string-only calls
+func InfoMsg(msg string)  { log.Info().Msg(msg) }
+func DebugMsg(msg string) { log.Debug().Msg(msg) }
+func ErrorMsg(msg string) { log.Error().Msg(msg) }

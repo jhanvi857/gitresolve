@@ -21,6 +21,7 @@ Standard Git merge operations perform line-based text integration. `gitresolve` 
 - [CI Integration](#ci-integration)
 - [Architecture](#architecture)
 - [Testing](#testing)
+- [Security](#security)
 - [Evidence and Limitations](#evidence-and-limitations)
 - [Readiness Gates](#readiness-gates)
 - [Comparative Positioning](#comparative-positioning)
@@ -71,7 +72,7 @@ gitresolve resolve --non-interactive --timeout 1m
 
 ### Safety-First Execution
 
-Every write operation is protected by atomic file swaps, PID-verified multi-layer locking, and pre-write syntax validation. If Go output validation fails, the write is skipped and the conflict escalates to manual review. The tool prefers a correct escalation over an unsafe auto-resolution.
+Every write operation is protected by **atomic file swaps**, **os.Root sandboxing (CWE-22 mitigation)**, **OS-native advisory locking**, and pre-write syntax validation. If Go output validation fails, the write is skipped and the conflict escalates to manual review. The tool implements a mandatory **10MB file size gate** to prevent resource exhaustion (DoS) attacks.
 
 ### AST-Based Classification
 
@@ -105,7 +106,7 @@ Resolution risk posture is configurable per command, per path, and per team via 
 | `gitresolve resolve --policy-profile <auto/strict/balanced/aggressive>` | Apply a risk posture by explicit profile or by `.gitresolve/policy.json` path mapping when set to `auto`. |
 | `gitresolve resolve --dry-run` | Preview decisions without writing files or acquiring the repository lock. |
 | `gitresolve resolve --shadow` | Simulate decisions and record hash-only before/after diffs without writing files. |
-| `gitresolve resolve --timeout <duration>` | Auto-select their-side resolution after the specified duration (e.g. `30s`). |
+| `gitresolve resolve --timeout <duration>` | On prompt timeout, emits an explicit warning and auto-selects their-side resolution (e.g. `30s`). |
 | `gitresolve resolve --enforce-gates --manual-rate-gate <percent>` | Fail the run if the manual escalation rate exceeds the specified threshold. |
 | `gitresolve scan --target <branch>` | Predict conflicts against a target branch using `git merge-tree`. |
 | `gitresolve merge --policy-profile <profile>` | Apply policy-based auto-resolution posture during merge execution. |
@@ -117,6 +118,9 @@ Resolution risk posture is configurable per command, per path, and per team via 
 | `gitresolve blame` | Show resolution history for audits. |
 | `gitresolve blame --patterns` | Display conflict pattern frequency analysis. |
 | `gitresolve undo --steps <N>` | Reset the repository to a recorded snapshot SHA from a recent session. |
+| `gitresolve resolve --max-file-bytes <bytes>` | Skip files larger than this limit (default 10MB). Set to -1 for unlimited. |
+| `gitresolve resolve --log-level <level>` | Set log level: error, warn, info, debug, trace (default: warn). |
+| `-v`, `--verbose` | Shorthand for `--log-level info`. |
 
 ---
 
@@ -160,7 +164,7 @@ gitresolve resolve --policy-profile auto --dry-run internal/auth/handler.go
 
 ## Observability and Stats
 
-All decisions are stored in a local SQLite database capped at 1000 records. Query them at any time:
+All decisions are stored in a local SQLite database. Conflict history retention defaults to 1000 records per repository and is configurable via environment variables documented below. Query stats at any time:
 
 ```bash
 gitresolve stats --json
@@ -188,6 +192,11 @@ Reason codes follow a stable, additive contract. Existing codes are never rename
 - `semantic.*` for type, field, or signature conflicts
 - `strategy.*` for policy and strategy enforcement decisions
 - `validation.*` for pre-write syntax and structural validation failures
+
+### Operational Environment Variables
+
+- `GITRESOLVE_DB_PATH`: Override the SQLite DB location. Absolute paths are used directly; relative paths are resolved from repo root.
+- `GITRESOLVE_DB_CONFLICT_CAP`: Per-repo conflict retention cap. Default `1000`. Set to `0` to disable pruning.
 
 ---
 
@@ -287,7 +296,8 @@ The test suite validates resolution accuracy across four severity levels:
 
 Beyond functional correctness, the suite includes:
 
-- **Fuzz oracle tests** for parser and resolution invariants and corruption guards.
+- **Fuzz testing** for the conflict parser to catch edge-case malformations.
+- **Fuzz oracle tests** for resolution invariants and corruption guards.
 - **Idempotency tests** to ensure repeated resolution runs produce identical output.
 - **Strategy consistency tests** to prevent cross-strategy contamination.
 - **Corpus deduplication tests** using normalized conflict fingerprints to keep real-world regression sets efficient and signal-rich.
@@ -296,6 +306,18 @@ Beyond functional correctness, the suite includes:
 ```bash
 go test ./...
 ```
+
+---
+
+## Security
+
+`gitresolve` is built for high-security environments:
+
+- **Path Traversal (CWE-22)**: Mandates `os.Root` sandboxing for all file operations.
+- **Resource Exhaustion (DoS)**: 10MB default file size gate prevents memory exhaustion.
+- **Advisory Locking**: Native `flock(2)`/`LockFileEx` to prevent races and PID-reuse attacks.
+- **Privacy**: Sensitive content is cryptographically hashed (SHA-256) in logs.
+- **Verifiable Releases**: Signed with Cosign (OIDC), CycloneDX SBOMs included.
 
 ---
 
@@ -313,9 +335,13 @@ go test ./...
 ### Current limitations
 
 - Semantic correctness is not guaranteed even when syntax validation passes. Passing compilation is a necessary but not sufficient condition for correctness.
-- AST and parser capability is language- and environment-dependent. Unsupported languages escalate with explicit reason codes rather than attempting unsafe resolution.
+- AST and parser capability is language- and environment-dependent. Go has the deepest syntax validation path today; JS/TS flows rely on conservative classifier and structural fallbacks where full semantic certainty is unavailable.
 - Heuristic recovery paths for malformed markers prioritize safe fallback and may still require manual review.
 - Real-world robustness is dependent on repository style, language mix, and conflict shape diversity. Published metrics will be added as corpus coverage grows.
+
+### Malformed Marker Resilience
+
+Malformed or nested conflict markers are treated as high-risk inputs. The parser marks them with stable reason codes and the resolver escalates to manual handling if safe deterministic reconstruction cannot be guaranteed.
 
 ### Recommended usage posture
 

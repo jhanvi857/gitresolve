@@ -6,46 +6,75 @@ import DocsShell from '@/components/DocsShell';
 export default function MergeFlow() {
   return (
     <DocsShell 
-      title="Merge Flow" 
-      subtitle="How gitresolve handles different types of conflicts across multi-branch merges."
+      title="Merge Logic & Flow" 
+      subtitle="The deterministic decision tree behind every automated resolution."
     >
-      <div className="space-y-12">
+      <div className="space-y-16">
         <section>
           <h2 className="text-xl font-semibold text-white mb-6">Automated Triage</h2>
           <p className="text-gray-400 mb-8 leading-relaxed">
-            Conflicts are triaged based on confidence. If the tool is 100% certain (e.g., whitespace), it auto-resolves. If it's 50% certain, it prompts for human feedback.
+            gitresolve processes every conflict through a multi-tier confidence engine. We only automate when the risk of logic corruption is statistically negligible or explicitly allowed by your Policy Profile.
           </p>
-          <div className="space-y-4">
-             <div className="p-4 rounded border border-[#222] bg-[#0a0a0a]">
-                <h3 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wide">Category: Trivial</h3>
-                <p className="text-sm text-gray-500">Whitespace shifts, identical line changes, or purely comment updates. <strong>Auto-Resolution: Yes.</strong></p>
-             </div>
-             <div className="p-4 rounded border border-[#222] bg-[#0a0a0a]">
-                <h3 className="text-green-400 text-sm font-semibold mb-2 uppercase tracking-wide">Category: Structured</h3>
-                <p className="text-sm text-gray-500">JSON, YAML, or TOML edits that don't overlap on the same key. <strong>Auto-Resolution: Yes (Semantic).</strong></p>
-             </div>
-             <div className="p-4 rounded border border-[#222] bg-[#0a0a0a]">
-                <h3 className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wide">Category: Imports</h3>
-                <p className="text-sm text-gray-500">Additions of new packages or libraries across branches. <strong>Auto-Resolution: Yes (Deduplicated).</strong></p>
-             </div>
-             <div className="p-4 rounded border border-red-900/50 bg-[#0a0a0a]">
-                <h3 className="text-red-400 text-sm font-semibold mb-2 uppercase tracking-wide">Category: Logic</h3>
-                <p className="text-sm text-gray-500">Function signature changes, deletion of used logic, or conflicting business rules. <strong>Auto-Resolution: No.</strong></p>
-             </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <TriageCard 
+               title="Trivial Normalization" 
+               color="text-blue-400"
+               desc="Whitespace shifts, identical line changes, or purely comment updates. Handled via bitwise line comparison."
+             />
+             <TriageCard 
+               title="Structured Native Merge" 
+               color="text-green-400"
+               desc="JSON, YAML, or TOML edits that don't overlap on the same key. Uses 3-way object tree merging."
+             />
+             <TriageCard 
+               title="Semantic Import Deduplication" 
+               color="text-orange-400"
+               desc="Merging additions of new packages or libraries without duplicating the import block header."
+             />
+             <TriageCard 
+               title="Logical Escalation" 
+               color="text-red-400"
+               desc="Function signature changes, deletion of used logic. These halt automation and require auditor review."
+             />
           </div>
         </section>
 
-        {/* IMAGE PLACEHOLDER 2 */}
-        <section className="pt-10">
-          <div className="w-full aspect-video rounded-xl border-2 border-dashed border-[#222] bg-[#050505] flex flex-col items-center justify-center text-center p-10">
-            <div className="w-16 h-16 rounded-full bg-[#111] flex items-center justify-center mb-4 text-gray-600">
-               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"></path><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect></svg>
-            </div>
-            <p className="text-white font-medium mb-1">Merge Workflow Placeholder</p>
-            <p className="text-sm text-gray-500 max-w-xs">Detailed illustration of a three-way merge resolution process for overlapping YAML blocks.</p>
-          </div>
+        <section>
+           <h2 className="text-xl font-semibold text-white mb-6">Symmetric Brace Recovery</h2>
+           <div className="p-8 rounded-2xl bg-[#050505] border border-[#1a1a1a] border-l-4 border-l-blue-500">
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Standard Git merge markers often cut through code structures, leaving unbalanced braces ({"{"} or {"}"}) which break the compiler. gitresolve uses a <strong>Lookahead Recovery</strong> algorithm: when it identifies a conflict inside a code block, it scans the surrounding context to ensure all braces remain balanced in the final resolution. 
+              </p>
+              <div className="mt-6 flex items-center gap-2 text-[10px] font-mono text-gray-700 uppercase tracking-widest">
+                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                 Available for Go, Java, and TypeScript
+              </div>
+           </div>
+        </section>
+
+        <section>
+           <h2 className="text-xl font-semibold text-white mb-6">The 3-Way Merge Process</h2>
+           <div className="prose-layout text-gray-400 text-sm leading-relaxed space-y-4">
+              <p>
+                Unlike simple "Ours vs Theirs", gitresolve attempts to find a <strong>Base Ancestor</strong> for every block. This allows us to determine what actually changed on each side:
+              </p>
+              <ul className="list-disc pl-5 space-y-2">
+                 <li>If Side A changed line 5 and Side B is identical to Base, we apply Side A automatically.</li>
+                 <li>If both Side A and Side B changed from Base but in the same way, we deduplicate.</li>
+                 <li>If both changed from Base differently, we escalate to the <strong>Interactive Orchestrator</strong>.</li>
+              </ul>
+           </div>
         </section>
       </div>
     </DocsShell>
+  );
+}
+
+function TriageCard({ title, color, desc }) {
+  return (
+    <div className="p-5 rounded-xl border border-[#1a1a1a] bg-[#080808]">
+      <h3 className={`text-xs font-bold mb-2 uppercase tracking-tight ${color}`}>{title}</h3>
+      <p className="text-[12px] text-gray-500 leading-relaxed">{desc}</p>
+    </div>
   );
 }
