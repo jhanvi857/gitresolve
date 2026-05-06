@@ -169,7 +169,7 @@ function Test-Fixture {
                 ".json" { $err = Test-JsonFile -Path $file.FullName }
                 ".yaml" { $err = Test-YamlFile -Path $file.FullName }
                 ".yml"  { $err = Test-YamlFile -Path $file.FullName }
-                ".go"   { $err = Test-GoFile -Path $file.FullName }
+                ".go", ".go_test"   { $err = Test-GoFile -Path $file.FullName }
                 ".toml" { $err = "TOML parser check not available in PowerShell; rely on gitresolve verification" }
                 default { }
             }
