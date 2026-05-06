@@ -125,6 +125,11 @@ func ParseFile(filePath string, content []byte) []*ConflictBlock {
 	return conflicts
 }
 
+func ParseFileWithConfig(filePath string, content []byte, cfg ResolverConfig) []*ConflictBlock {
+	_ = cfg
+	return ParseFile(filePath, content)
+}
+
 func CompileResolution(content []byte, conflicts []*ConflictBlock) string {
 	if len(conflicts) == 0 {
 		return string(content)

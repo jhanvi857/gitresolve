@@ -2,6 +2,7 @@ package conflict
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"go/parser"
@@ -28,6 +29,7 @@ type ResolveResult struct {
 	SelectedLabel   string
 	FailureHint     string
 	BothAllowedNext bool
+	TimeoutAuto     bool
 }
 
 const (
@@ -45,10 +47,14 @@ func Resolve(c *ConflictBlock, strategy Strategy, opts ResolveOptions) (ResolveR
 		case StrategyOurs:
 			res.SelectedLabel = "ours"
 			c.Resolution = strings.Join(c.OursLines, "\n")
+			hash := sha256.Sum256([]byte(c.Resolution))
+			logger.Debug().Str("content_hash", fmt.Sprintf("%x", hash)[:12]).Msg("applied ours strategy")
 			return res, nil
 		case StrategyTheirs:
 			res.SelectedLabel = "theirs"
 			c.Resolution = strings.Join(c.TheirsLines, "\n")
+			hash := sha256.Sum256([]byte(c.Resolution))
+			logger.Debug().Str("content_hash", fmt.Sprintf("%x", hash)[:12]).Msg("applied theirs strategy")
 			return res, nil
 		case StrategyBoth:
 			res.SelectedLabel = "both"
@@ -96,8 +102,9 @@ func Resolve(c *ConflictBlock, strategy Strategy, opts ResolveOptions) (ResolveR
 			attempts++
 			choice, timedOut := readChoice(opts.Timeout, bothAllowed)
 			if timedOut {
-				fmt.Printf("\nTimeout reached (%s). Auto-selecting [T]heirs.\n", opts.Timeout.String())
+				fmt.Printf("\nWARNING: interactive prompt timed out after %s. Auto-selecting [T]heirs. Use --timeout 0 to disable timeout auto-selection.\n", opts.Timeout.String())
 				res, err := applySelection(StrategyTheirs)
+				res.TimeoutAuto = true
 				return res, err
 			}
 
@@ -206,7 +213,7 @@ func buildBothResolution(c *ConflictBlock) (string, error) {
 		if err == nil {
 			return merged, nil
 		}
-		logger.Debug("yaml both merge fallback: " + err.Error())
+		logger.Debug().Msg("yaml both merge fallback: " + err.Error())
 	}
 
 	oursDepth := braceDepth(c.OursLines)
@@ -232,7 +239,11 @@ func buildBothResolution(c *ConflictBlock) (string, error) {
 		}
 	}
 
-	return strings.Join(combined, "\n"), nil
+	res := strings.Join(combined, "\n")
+	hash := sha256.Sum256([]byte(res))
+	logger.Debug().Str("content_hash", fmt.Sprintf("%x", hash)[:12]).Msg("built both resolution")
+
+	return res, nil
 }
 
 func combineWithIndent(ours, theirs []string) []string {

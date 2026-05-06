@@ -4,11 +4,13 @@ import "fmt"
 
 const (
 	ReasonParserMalformedNestedMarker = "parser.malformed_nested_marker"
+	ReasonParserFileTooLarge          = "parser.file_too_large"
 	ReasonParserMissingDivider        = "parser.missing_divider"
 	ReasonSemanticUnsupportedLanguage = "semantic.unsupported_language"
 	ReasonSemanticParseFailed         = "semantic.parse_failed"
 	ReasonSafetyIncompleteStructure   = "safety.incomplete_structure"
 	ReasonStrategyBothBlockedRisk     = "strategy.both_blocked_high_risk"
+	ReasonStrategyTimeoutAutoTheirs   = "strategy.timeout_auto_theirs"
 	ReasonValidationSyntaxFailed      = "validation.syntax_failed"
 	ReasonStructuredAutoDisabled      = "structured.auto_disabled"
 	ReasonStructuredOverlap           = "structured.overlap"
@@ -22,11 +24,13 @@ const (
 
 var stableReasonCodeSet = map[string]struct{}{
 	ReasonParserMalformedNestedMarker: {},
+	ReasonParserFileTooLarge:          {},
 	ReasonParserMissingDivider:        {},
 	ReasonSemanticUnsupportedLanguage: {},
 	ReasonSemanticParseFailed:         {},
 	ReasonSafetyIncompleteStructure:   {},
 	ReasonStrategyBothBlockedRisk:     {},
+	ReasonStrategyTimeoutAutoTheirs:   {},
 	ReasonValidationSyntaxFailed:      {},
 	ReasonStructuredAutoDisabled:      {},
 	ReasonStructuredOverlap:           {},
