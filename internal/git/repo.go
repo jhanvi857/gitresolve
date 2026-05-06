@@ -2,20 +2,22 @@ package git
 
 import (
 	"fmt"
+	"os"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/jhanvi857/gitresolve/internal/safety"
+	"github.com/jhanvi857/gitresolve/internal/lock"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
 )
 
 type Repository struct {
 	Path string
 	repo *gogit.Repository
+	lock *lock.RepoLock
 }
 
 // opening git repo at given path and aquire lock.
-func Open(path string) (*Repository, error) {
+func Open(path string, root *os.Root) (*Repository, error) {
 	r, err := gogit.PlainOpenWithOptions(path, &gogit.PlainOpenOptions{
 		DetectDotGit: true,
 	})
@@ -23,7 +25,7 @@ func Open(path string) (*Repository, error) {
 		return nil, fmt.Errorf("Open: %w", gserrors.ErrNoRepo)
 	}
 
-	err = safety.AcquireLock(path)
+	l, err := lock.Acquire(root)
 	if err != nil {
 		return nil, fmt.Errorf("Open: %w", err)
 	}
@@ -31,14 +33,14 @@ func Open(path string) (*Repository, error) {
 	return &Repository{
 		Path: path,
 		repo: r,
+		lock: l,
 	}, nil
 }
 
 // closing repo and release lock.
 func Close(r *Repository) error {
-	err := safety.ReleaseLock(r.Path)
-	if err != nil {
-		return fmt.Errorf("Close: %w", err)
+	if r.lock != nil {
+		_ = r.lock.Release()
 	}
 	return nil
 }
