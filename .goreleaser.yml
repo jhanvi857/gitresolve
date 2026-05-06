@@ -1,0 +1,68 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod vendor
+
+builds:
+  - id: gitresolve
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    main: .
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - artifacts: archive
+    args: ["$artifact", "--output", "cyclonedx-json", "--file", "$sboms"]
+
+signs:
+  - cmd: cosign
+    args: ["sign-blob", "--output-certificate=${certificate}", "--output-signature=${signature}", "${artifact}", "--yes"]
+    artifacts: checksum
+    certificate: '${artifact}.pem'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+  groups:
+    - title: 'Features'
+      regexp: "^feat[(\\w)]*!?:.+$"
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: "^fix[(\\w)]*!?:.+$"
+      order: 1
+    - title: 'Security'
+      regexp: "^sec[(\\w)]*!?:.+$"
+      order: 2
+    - title: 'Breaking Changes'
+      regexp: "^.*!:.+$"
+      order: 3

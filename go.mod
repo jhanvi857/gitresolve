@@ -43,6 +43,10 @@ require (
 	github.com/go-git/go-git/v5 v5.17.0
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	// go-tree-sitter: CGo binding to tree-sitter C library.
+	// Pinned to commit hash — no stable semver tag exists upstream.
+	// Upgrade checklist: review open issues, run govulncheck, run full test suite.
+	// Last reviewed: 2026-05-05
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 	golang.org/x/sys v0.42.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
