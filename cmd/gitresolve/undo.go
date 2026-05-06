@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +20,20 @@ var undoCmd = &cobra.Command{
 			return
 		}
 
-		r, err := git.Open(".")
+		repoRoot, err := ResolveRepoRoot()
+		if err != nil {
+			fmt.Println("Fatal: failed to resolve repository root:", err)
+			return
+		}
+
+		root, err := safepath.RepoRoot(repoRoot)
+		if err != nil {
+			fmt.Println("Fatal: failed to open repository sandbox:", err)
+			return
+		}
+		defer root.Close()
+
+		r, err := git.Open(".", root)
 		if err != nil {
 			fmt.Println("Fatal: Failed to open git repository:", err)
 			return
@@ -56,7 +70,7 @@ var undoCmd = &cobra.Command{
 			fmt.Println("Warning: reset succeeded but could not prune session history:", err)
 		}
 
-		_ = git.ClearStoredHead(".")
+		_ = git.ClearStoredHead(root)
 		fmt.Println("Undo successful.")
 	},
 }

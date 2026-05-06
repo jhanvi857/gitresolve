@@ -3,6 +3,7 @@ package gitresolve
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/ownership"
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
@@ -26,6 +28,7 @@ var resolveShadow bool
 var resolveEnforceGates bool
 var resolveManualRateGate float64
 var resolvePolicyProfile string
+var resolveMaxFileBytes int64
 
 var resolveCmd = &cobra.Command{
 	Use:   "resolve",
@@ -38,7 +41,21 @@ var resolveCmd = &cobra.Command{
 			return
 		}
 
-		r, err := git.Open(".")
+		repoPath := "."
+		repoRoot, err := ResolveRepoRoot()
+		if err != nil {
+			fmt.Println("Fatal: failed to resolve repository root:", err)
+			return
+		}
+
+		root, err := safepath.RepoRoot(repoRoot)
+		if err != nil {
+			fmt.Println("Fatal: failed to open repository sandbox:", err)
+			return
+		}
+		defer root.Close()
+
+		r, err := git.Open(".", root)
 		if err != nil {
 			fmt.Println("Fatal: Failed to open git repository:", err)
 			return
@@ -46,11 +63,10 @@ var resolveCmd = &cobra.Command{
 		defer git.Close(r)
 		HandleSignals(r)
 
-		repoPath := "."
 		files, err := git.ConflictedFiles(r)
 		if err != nil {
 			fmt.Println("No unmerged files in index. Scanning for mis-staged markers...")
-			files, _ = git.ScanForMarkers(repoPath)
+			files, _ = git.ScanForMarkers(root)
 		}
 
 		if len(files) == 0 {
@@ -58,7 +74,8 @@ var resolveCmd = &cobra.Command{
 			return
 		}
 
-		writer := safety.NewWriter(resolveDryRun)
+		writer := safety.NewWriter(resolveDryRun, root)
+		resolverCfg := conflict.ResolverConfig{MaxFileBytes: resolveMaxFileBytes}
 
 		db, dbErr := openStore(repoPath)
 		if dbErr == nil {
@@ -69,7 +86,7 @@ var resolveCmd = &cobra.Command{
 			head, headErr := r.HeadCommit()
 			if headErr == nil {
 				_ = db.SaveSession(repoPath, "resolve", head)
-				_ = git.StoreHead(repoPath, head)
+				_ = git.StoreHead(root, head)
 			}
 		}
 
@@ -86,20 +103,53 @@ var resolveCmd = &cobra.Command{
 				continue
 			}
 
-			content, err := os.ReadFile(file)
+			content, skippedLarge, sizeBytes, err := readConflictFileWithLimit(root, file, resolverCfg, nil)
 			if err != nil {
 				fmt.Printf("Error reading %s: %v\n", file, err)
 				continue
 			}
+			if skippedLarge {
+				reason := fmt.Sprintf("conflict file too large (%d bytes) exceeds max-file-bytes=%d", sizeBytes, resolverCfg.MaxFileBytes)
+				fmt.Printf("Skipping %s: %s\n", file, reason)
+				logger.Debug().Msg(fmt.Sprintf("file-size gate: file=%s size=%d max=%d", file, sizeBytes, resolverCfg.MaxFileBytes))
+				manualEscalations++
+				if dbErr == nil {
+					_ = db.SaveDecision(store.DecisionRecord{
+						RepoPath:     repoPath,
+						FilePath:     file,
+						Operation:    "resolve",
+						ConflictType: "file",
+						Severity:     "high",
+						Action:       "manual-escalate",
+						ReasonCode:   conflict.ReasonParserFileTooLarge,
+						Reason:       reason,
+						Confidence:   1,
+						Shadow:       resolveShadow,
+					})
+				}
+				continue
+			}
 
-			conflicts := conflict.ParseFile(file, content)
-			logger.Debug(fmt.Sprintf("parsed %d conflict block(s) in %s", len(conflicts), file))
+			conflicts, parseErr := parseConflictsSafely(file, content, resolverCfg)
+			if parseErr != nil {
+				fmt.Printf("Warning: parser failure while scanning %s: %v\n", file, parseErr)
+				fmt.Println("Escalating file to manual review to avoid unsafe auto-resolution.")
+				logger.Debug().Msg(fmt.Sprintf("parser recovery triggered: file=%s err=%v", file, parseErr))
+				manualEscalations++
+				validationFailed++
+				failedFiles = append(failedFiles, file)
+				if resolveNonInteractive {
+					os.Exit(1)
+				}
+				continue
+			}
+			logger.Debug().Msg(fmt.Sprintf("parsed %d conflict block(s) in %s", len(conflicts), file))
 			if len(conflicts) == 0 {
 				continue
 			}
 
 			if !resolveDryRun {
-				if err := safety.PreserveOriginal(file); err != nil {
+				if err := safety.PreserveOriginal(root, file); err != nil {
 					fmt.Printf("Warning: backup failed for %s: %v\n", file, err)
 					continue
 				}
@@ -109,10 +159,10 @@ var resolveCmd = &cobra.Command{
 			fileSkipped := false
 			for _, c := range conflicts {
 				totalDecisions++
-				logger.Debug(fmt.Sprintf("conflict block parsed: file=%s start=%d end=%d ours=%d theirs=%d", file, c.StartLine, c.EndLine, len(c.OursLines), len(c.TheirsLines)))
+				logger.Debug().Msg(fmt.Sprintf("conflict block parsed: file=%s start=%d end=%d ours=%d theirs=%d", file, c.StartLine, c.EndLine, len(c.OursLines), len(c.TheirsLines)))
 				conflict.Classify(c)
 
-				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(repoPath, file, resolvePolicyProfile)
+				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(root, file, resolvePolicyProfile)
 				if policyErr != nil {
 					fmt.Printf("Warning: policy resolution failed for %s: %v (falling back to balanced)\n", file, policyErr)
 					resolvedPolicy = ownership.PolicyBalanced
@@ -156,7 +206,7 @@ var resolveCmd = &cobra.Command{
 				result, resolveErr := conflict.Resolve(c, strategy, opts)
 				if resolveErr != nil {
 					fmt.Printf("Resolve failed for %s: %v\n", file, resolveErr)
-					logger.Debug(fmt.Sprintf("resolution failure: file=%s start=%d end=%d err=%v", file, c.StartLine, c.EndLine, resolveErr))
+					logger.Debug().Msg(fmt.Sprintf("resolution failure: file=%s start=%d end=%d err=%v", file, c.StartLine, c.EndLine, resolveErr))
 					manualEscalations++
 					if dbErr == nil {
 						_ = db.SaveDecision(store.DecisionRecord{
@@ -181,7 +231,7 @@ var resolveCmd = &cobra.Command{
 					break
 				}
 
-				logger.Debug(fmt.Sprintf("resolution selected: file=%s start=%d end=%d choice=%s applied=%v", file, c.StartLine, c.EndLine, result.SelectedLabel, result.Applied))
+				logger.Debug().Msg(fmt.Sprintf("resolution selected: file=%s start=%d end=%d choice=%s applied=%v", file, c.StartLine, c.EndLine, result.SelectedLabel, result.Applied))
 				if !result.Applied {
 					manualEscalations++
 					if dbErr == nil {
@@ -202,10 +252,19 @@ var resolveCmd = &cobra.Command{
 					continue
 				}
 
+				if result.TimeoutAuto {
+					conflict.SetManualEscalation(c, conflict.ReasonStrategyTimeoutAutoTheirs, "interactive timeout auto-selected theirs", "increase --timeout or set --strategy ours|theirs")
+					fmt.Printf("Warning: timeout auto-selected 'theirs' for %s at lines %d-%d\n", file, c.StartLine, c.EndLine)
+					logger.Debug().Msg(fmt.Sprintf("timeout auto-selection: file=%s start=%d end=%d strategy=theirs timeout=%s", file, c.StartLine, c.EndLine, resolveTimeout.String()))
+				}
+
 				if dbErr == nil {
 					action := "resolve"
 					if isAuto {
 						action = "auto-resolve"
+					}
+					if result.TimeoutAuto {
+						action = "timeout-auto-theirs"
 					}
 					_ = db.SaveDecision(store.DecisionRecord{
 						RepoPath:     repoPath,
@@ -277,7 +336,7 @@ var resolveCmd = &cobra.Command{
 				fmt.Printf("Safety check failed for %s: %v\n", file, err)
 				validationFailed++
 				failedFiles = append(failedFiles, file)
-				logger.Debug(fmt.Sprintf("marker cleanup failed: file=%s err=%v", file, err))
+				logger.Debug().Msg(fmt.Sprintf("marker cleanup failed: file=%s err=%v", file, err))
 				if resolveNonInteractive {
 					os.Exit(1)
 				}
@@ -285,7 +344,7 @@ var resolveCmd = &cobra.Command{
 			}
 			if err := conflict.Verify(file, newContent); err != nil {
 				fmt.Printf("Verification failed for %s: %v\n", file, err)
-				logger.Debug(fmt.Sprintf("validation failure: file=%s err=%v", file, err))
+				logger.Debug().Msg(fmt.Sprintf("validation failure: file=%s err=%v", file, err))
 				validationFailed++
 				failedFiles = append(failedFiles, file)
 				if resolveNonInteractive {
@@ -301,7 +360,7 @@ var resolveCmd = &cobra.Command{
 					continue
 				}
 				fmt.Printf("Error writing %s: %v\n", file, err)
-				logger.Debug(fmt.Sprintf("write failure: file=%s err=%v", file, err))
+				logger.Debug().Msg(fmt.Sprintf("write failure: file=%s err=%v", file, err))
 				validationFailed++
 				failedFiles = append(failedFiles, file)
 				if resolveNonInteractive {
@@ -371,6 +430,46 @@ func parseStrategy(v string) (conflict.Strategy, error) {
 	}
 }
 
+func parseConflictsSafely(filePath string, content []byte, cfg conflict.ResolverConfig) (conflicts []*conflict.ConflictBlock, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic recovered while parsing conflict markers in %s: %v", filePath, r)
+			conflicts = nil
+		}
+	}()
+
+	conflicts = conflict.ParseFileWithConfig(filePath, content, cfg)
+	return conflicts, nil
+}
+
+func readConflictFileWithLimit(root *os.Root, file string, cfg conflict.ResolverConfig, onSkipTooLarge func(file string, size int64, cfg conflict.ResolverConfig)) ([]byte, bool, int64, error) {
+	info, err := root.Stat(file)
+	if err != nil {
+		return nil, false, 0, err
+	}
+
+	size := info.Size()
+	if cfg.FileTooLarge(size) {
+		if onSkipTooLarge != nil {
+			onSkipTooLarge(file, size, cfg)
+		}
+		return nil, true, size, nil
+	}
+
+	f, err := safepath.SafeOpen(root, file)
+	if err != nil {
+		return nil, false, size, err
+	}
+
+	content, readErr := io.ReadAll(f)
+	_ = f.Close()
+	if readErr != nil {
+		return nil, false, size, readErr
+	}
+
+	return content, false, size, nil
+}
+
 func storeConflict(repoPath, file string, c *conflict.ConflictBlock, strategy string) store.ConflictRecord {
 	return store.ConflictRecord{
 		RepoPath:     repoPath,
@@ -392,5 +491,6 @@ func init() {
 	resolveCmd.Flags().BoolVar(&resolveNonInteractive, "non-interactive", false, "fail on conflicts requiring manual resolution instead of prompting")
 	resolveCmd.Flags().BoolVar(&resolveEnforceGates, "enforce-gates", false, "enforce release gate thresholds (manual rate and validation failures)")
 	resolveCmd.Flags().Float64Var(&resolveManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")
-	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 0, "timeout for interactive prompt (e.g. 30s). Auto-selects theirs if reached.")
+	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 0, "timeout for interactive prompt (e.g. 30s). Emits a warning and auto-selects theirs if reached.")
+	resolveCmd.Flags().Int64Var(&resolveMaxFileBytes, "max-file-bytes", conflict.DefaultMaxConflictFileBytes, "maximum conflict file size in bytes before manual escalation (-1 for unlimited)")
 }

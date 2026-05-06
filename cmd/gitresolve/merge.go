@@ -3,12 +3,14 @@ package gitresolve
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/ownership"
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
@@ -30,7 +32,20 @@ var mergeCmd = &cobra.Command{
 		fmt.Printf("Engine Bootup: Initializing gitresolve in directory '.' (DryRun: %v, NoAutoStructured: %v)\n", dryRun, noAutoStructured)
 
 		repoPath := "."
-		r, err := git.Open(".")
+		repoRoot, err := ResolveRepoRoot()
+		if err != nil {
+			fmt.Println("Fatal: failed to resolve repository root:", err)
+			return
+		}
+
+		root, err := safepath.RepoRoot(repoRoot)
+		if err != nil {
+			fmt.Println("Fatal: failed to open repository sandbox:", err)
+			return
+		}
+		defer root.Close()
+
+		r, err := git.Open(".", root)
 		if err != nil {
 			fmt.Println("Fatal: Failed to open git repository: ", err)
 			return
@@ -47,7 +62,7 @@ var mergeCmd = &cobra.Command{
 			head, headErr := r.HeadCommit()
 			if headErr == nil {
 				_ = db.SaveSession(repoPath, "merge", head)
-				_ = git.StoreHead(repoPath, head)
+				_ = git.StoreHead(root, head)
 			}
 		}
 
@@ -58,7 +73,7 @@ var mergeCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Scanning index. Found %d unmerged conflicts...\n", len(files))
-		writer := safety.NewWriter(dryRun)
+		writer := safety.NewWriter(dryRun, root)
 
 		autoResolved := 0
 		interactiveResolved := 0 // remain 0 for merge command
@@ -72,13 +87,20 @@ var mergeCmd = &cobra.Command{
 			fmt.Printf("\n--- Processing %s ---\n", file)
 
 			if !dryRun {
-				if err := safety.PreserveOriginal(file); err != nil {
+				if err := safety.PreserveOriginal(root, file); err != nil {
 					fmt.Println("Warning: Could not create backup:", err)
 					continue
 				}
 			}
 
-			content, err := os.ReadFile(file)
+			f, err := safepath.SafeOpen(root, file)
+			if err != nil {
+				fmt.Println("Error reading file:", err)
+				continue
+			}
+
+			content, err := io.ReadAll(f)
+			_ = f.Close()
 			if err != nil {
 				fmt.Println("Error reading file:", err)
 				continue
@@ -90,7 +112,7 @@ var mergeCmd = &cobra.Command{
 			for _, c := range conflicts {
 				totalDecisions++
 				conflict.Classify(c)
-				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(repoPath, file, mergePolicyProfile)
+				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(root, file, mergePolicyProfile)
 				if policyErr != nil {
 					fmt.Printf("Warning: policy resolution failed for %s: %v (falling back to balanced)\n", file, policyErr)
 					resolvedPolicy = ownership.PolicyBalanced

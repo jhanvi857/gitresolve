@@ -2,10 +2,11 @@ package gitresolve
 
 import (
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +15,20 @@ var statusCmd = &cobra.Command{
 	Short: "Show current conflict state with severity scores",
 	Long:  `Displays current unresolved and resolved conflicts sorted by severity. Evaluates and predicts conflict severity without performing auto-resolution.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		r, err := git.Open(".")
+		repoRoot, err := ResolveRepoRoot()
+		if err != nil {
+			fmt.Println("Fatal: failed to resolve repository root:", err)
+			return
+		}
+
+		root, err := safepath.RepoRoot(repoRoot)
+		if err != nil {
+			fmt.Println("Fatal: failed to open repository sandbox:", err)
+			return
+		}
+		defer root.Close()
+
+		r, err := git.Open(".", root)
 		if err != nil {
 			fmt.Println("Fatal: Failed to open git repository:", err)
 			return
@@ -32,7 +46,14 @@ var statusCmd = &cobra.Command{
 
 		var total int
 		for _, file := range files {
-			content, err := os.ReadFile(file)
+			f, err := safepath.SafeOpen(root, file)
+			if err != nil {
+				fmt.Printf("  --     read-error      --    %s (%v)\n", file, err)
+				continue
+			}
+
+			content, err := io.ReadAll(f)
+			_ = f.Close()
 			if err != nil {
 				fmt.Printf("  --     read-error      --    %s (%v)\n", file, err)
 				continue

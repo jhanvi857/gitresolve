@@ -31,7 +31,13 @@ func HandleSignals(r *git.Repository) {
 }
 
 func dbPathForRepo(repoPath string) string {
-	return filepath.Join(repoPath, ".git", "gitresolve.db")
+	if envPath := strings.TrimSpace(os.Getenv("GITRESOLVE_DB_PATH")); envPath != "" {
+		if filepath.IsAbs(envPath) {
+			return envPath
+		}
+		return filepath.Join(repoPath, envPath)
+	}
+	return filepath.Join(repoPath, ".gitresolve", "conflicts.db")
 }
 
 func openStore(repoPath string) (*store.DB, error) {
@@ -68,7 +74,7 @@ func ValidatePath(repoRoot, filePath string) error {
 
 	realRoot, err := filepath.EvalSymlinks(absRoot)
 	if err != nil {
-		logger.Debug("symlink eval on root failed (non-fatal): " + err.Error())
+		logger.Debug().Msg("symlink eval on root failed (non-fatal): " + err.Error())
 		realRoot = absRoot
 	}
 

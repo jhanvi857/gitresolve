@@ -5,11 +5,15 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/jhanvi857/gitresolve/pkg/logger"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
 var verbose bool
+var force bool
+var logLevel string
 
 var rootCmd = &cobra.Command{
 	Use:   "gitresolve",
@@ -19,7 +23,19 @@ and deterministic rule-based reasoning, auto-resolves safe conflict types,
 detects cross-file semantic breakages after merge, and predicts conflicts 
 before they happen.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		logger.Init(verbose)
+		lvl := zerolog.WarnLevel
+		if verbose {
+			lvl = zerolog.InfoLevel
+		} else {
+			var err error
+			lvl, err = zerolog.ParseLevel(logLevel)
+			if err != nil {
+				return fmt.Errorf("invalid log level: %w", err)
+			}
+		}
+
+		logger.InitWithLevel(lvl)
+		safepath.SetForceAllowUnsupported(force)
 		if err := preflightChecks(); err != nil {
 			return err
 		}
@@ -43,5 +59,8 @@ func preflightChecks() error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug logging")
+	zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "warn", "set log level (error, warn, info, debug, trace)")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable info logging (shorthand for --log-level info)")
+	rootCmd.PersistentFlags().BoolVar(&force, "force", false, "allow unsafe fallback on unsupported platforms (plan9/js)")
 }

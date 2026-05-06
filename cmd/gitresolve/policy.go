@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jhanvi857/gitresolve/internal/ownership"
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +34,13 @@ var policyCheckCmd = &cobra.Command{
 			return
 		}
 
+		root, err := safepath.RepoRoot(repoRoot)
+		if err != nil {
+			fmt.Println("Policy check failed:", err)
+			return
+		}
+		defer root.Close()
+
 		inputPath := filepath.Clean(args[0])
 		absPath := inputPath
 		if !filepath.IsAbs(absPath) {
@@ -51,7 +59,7 @@ var policyCheckCmd = &cobra.Command{
 			return
 		}
 
-		resolution, err := ownership.ResolvePolicy(repoRoot, relPath, policyCheckProfile)
+		resolution, err := ownership.ResolvePolicy(root, relPath, policyCheckProfile)
 		if err != nil {
 			fmt.Println("Policy check failed:", err)
 			return
