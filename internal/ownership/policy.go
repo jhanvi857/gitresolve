@@ -2,8 +2,10 @@ package ownership
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -14,10 +16,24 @@ const (
 	PolicyAggressive = "aggressive"
 )
 
+var (
+	ErrPolicyTooLarge       = errors.New("policy.json exceeds maximum size of 1MB")
+	ErrPolicyTooManyEntries = errors.New("policy.json contains too many entries")
+)
+
+func ErrPolicyUnknownKey(key string) error {
+	return fmt.Errorf("unknown top-level key in policy.json: %s", key)
+}
+
+func ErrPolicyInvalidProfile(val string) error {
+	return fmt.Errorf("invalid policy profile: %s", val)
+}
+
 type PolicyConfig struct {
 	DefaultProfile string            `json:"default"`
 	PathProfiles   map[string]string `json:"path_profiles"`
 	TeamProfiles   map[string]string `json:"team_profiles"`
+	SortedPathKeys []string          `json:"-"`
 }
 
 type PolicyResolution struct {
@@ -48,10 +64,11 @@ func normalizePolicyProfile(profile string) string {
 	return p
 }
 
-func LoadPolicyConfig(repoPath string) (*PolicyConfig, error) {
-	configPath := repoPath + "/.gitresolve/policy.json"
+func LoadPolicyConfig(root *os.Root) (*PolicyConfig, error) {
+	configPath := ".gitresolve/policy.json"
 
-	data, err := os.ReadFile(configPath)
+	// safepath: CWE-22 hardened
+	stat, err := root.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &PolicyConfig{
@@ -63,38 +80,70 @@ func LoadPolicyConfig(repoPath string) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("LoadPolicyConfig: %w", err)
 	}
 
+	if stat.Size() > 1024*1024 {
+		return nil, ErrPolicyTooLarge
+	}
+
+	// safepath: CWE-22 hardened
+	f, err := root.Open(configPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
 	var cfg PolicyConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	dec := json.NewDecoder(f)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&cfg); err != nil {
+		if strings.Contains(err.Error(), "unknown field") {
+			parts := strings.Split(err.Error(), "\"")
+			if len(parts) >= 2 {
+				return nil, ErrPolicyUnknownKey(parts[1])
+			}
+		}
 		return nil, fmt.Errorf("LoadPolicyConfig: parsing policy.json: %w", err)
 	}
 
+	if cfg.DefaultProfile != "" && !IsValidPolicyProfile(cfg.DefaultProfile) {
+		return nil, ErrPolicyInvalidProfile(cfg.DefaultProfile)
+	}
 	cfg.DefaultProfile = normalizePolicyProfile(cfg.DefaultProfile)
-	if cfg.PathProfiles == nil {
-		cfg.PathProfiles = make(map[string]string)
-	}
-	if cfg.TeamProfiles == nil {
-		cfg.TeamProfiles = make(map[string]string)
-	}
 
+	if len(cfg.PathProfiles) > 500 {
+		return nil, ErrPolicyTooManyEntries
+	}
+	cfg.SortedPathKeys = make([]string, 0, len(cfg.PathProfiles))
 	for k, v := range cfg.PathProfiles {
+		if !IsValidPolicyProfile(v) {
+			return nil, ErrPolicyInvalidProfile(v)
+		}
 		cfg.PathProfiles[k] = normalizePolicyProfile(v)
+		cfg.SortedPathKeys = append(cfg.SortedPathKeys, k)
+	}
+	sort.Strings(cfg.SortedPathKeys)
+
+	if len(cfg.TeamProfiles) > 100 {
+		return nil, ErrPolicyTooManyEntries
 	}
 	for k, v := range cfg.TeamProfiles {
+		if !IsValidPolicyProfile(v) {
+			return nil, ErrPolicyInvalidProfile(v)
+		}
 		cfg.TeamProfiles[k] = normalizePolicyProfile(v)
 	}
 
 	return &cfg, nil
 }
 
-func ResolvePolicyProfile(repoPath, filePath, explicitProfile string) (string, error) {
-	resolution, err := ResolvePolicy(repoPath, filePath, explicitProfile)
+func ResolvePolicyProfile(root *os.Root, filePath, explicitProfile string) (string, error) {
+	resolution, err := ResolvePolicy(root, filePath, explicitProfile)
 	if err != nil {
 		return "", err
 	}
 	return resolution.ResolvedProfile, nil
 }
 
-func ResolvePolicy(repoPath, filePath, explicitProfile string) (*PolicyResolution, error) {
+func ResolvePolicy(root *os.Root, filePath, explicitProfile string) (*PolicyResolution, error) {
 	requested := normalizePolicyProfile(explicitProfile)
 	if requested != PolicyAuto {
 		return &PolicyResolution{
@@ -104,19 +153,28 @@ func ResolvePolicy(repoPath, filePath, explicitProfile string) (*PolicyResolutio
 		}, nil
 	}
 
-	cfg, err := LoadPolicyConfig(repoPath)
+	cfg, err := LoadPolicyConfig(root)
 	if err != nil {
 		return nil, err
 	}
 
 	bestPrefix := ""
 	selected := ""
-	for prefix, profile := range cfg.PathProfiles {
-		if strings.HasPrefix(filePath, prefix) && len(prefix) > len(bestPrefix) {
+
+	// Optimized prefix matching using binary search
+	idx := sort.Search(len(cfg.SortedPathKeys), func(i int) bool {
+		return cfg.SortedPathKeys[i] > filePath
+	})
+
+	for i := idx - 1; i >= 0; i-- {
+		prefix := cfg.SortedPathKeys[i]
+		if strings.HasPrefix(filePath, prefix) {
+			selected = cfg.PathProfiles[prefix]
 			bestPrefix = prefix
-			selected = profile
+			break
 		}
 	}
+
 	if selected != "" {
 		return &PolicyResolution{
 			RequestedProfile: requested,
@@ -126,7 +184,7 @@ func ResolvePolicy(repoPath, filePath, explicitProfile string) (*PolicyResolutio
 		}, nil
 	}
 
-	owners, err := LoadConfig(repoPath)
+	owners, err := LoadConfig(root)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,42 +109,59 @@ func MarkResolved(r *Repository, filePath string) error {
 	return nil
 }
 
-func ScanForMarkers(repoPath string) ([]string, error) {
+func ScanForMarkers(root *os.Root) ([]string, error) {
 	var results []string
-	absRoot, _ := filepath.Abs(repoPath)
+	err := walkRoot(root, ".", &results)
+	return results, err
+}
 
-	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
-			if info.Name() == ".git" || info.Name() == "node_modules" || info.Name() == "vendor" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
+func walkRoot(root *os.Root, relPath string, results *[]string) error {
+	// safepath: CWE-22 hardened
+	f, err := root.Open(relPath)
+	if err != nil {
+		return nil // skip if cannot open
+	}
+	defer f.Close()
 
-		// check for markers in text files
-		if isLikelyText(path) {
-			content, err := os.ReadFile(path)
+	stat, err := f.Stat()
+	if err != nil {
+		return nil
+	}
+
+	if !stat.IsDir() {
+		if isLikelyText(relPath) {
+			content, err := io.ReadAll(f)
 			if err == nil {
 				if strings.Contains(string(content), "<<<<<<<") &&
 					strings.Contains(string(content), "=======") &&
 					strings.Contains(string(content), ">>>>>>>") {
-					rel, err := filepath.Rel(repoPath, path)
-					if err == nil {
-						// Validate the path doesn't escape the repo
-						absFile, _ := filepath.Abs(path)
-						if strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) {
-							results = append(results, rel)
-						}
-					}
+					*results = append(*results, relPath)
 				}
 			}
 		}
 		return nil
-	})
-	return results, err
+	}
+
+	// It's a directory
+	base := filepath.Base(relPath)
+	if base == ".git" || base == "node_modules" || base == "vendor" {
+		return nil
+	}
+
+	entries, err := f.ReadDir(-1)
+	if err != nil {
+		return nil
+	}
+
+	for _, d := range entries {
+		nextPath := filepath.Join(relPath, d.Name())
+		if relPath == "." {
+			nextPath = d.Name()
+		}
+		_ = walkRoot(root, nextPath, results)
+	}
+
+	return nil
 }
 
 func isLikelyText(path string) bool {

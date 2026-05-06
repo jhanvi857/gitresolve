@@ -8,7 +8,9 @@ import (
 
 func TestResolvePolicyProfile_DefaultBalanced(t *testing.T) {
 	tmp := t.TempDir()
-	profile, err := ResolvePolicyProfile(tmp, "internal/foo/bar.go", PolicyAuto)
+	root, _ := os.OpenRoot(tmp)
+	defer root.Close()
+	profile, err := ResolvePolicyProfile(root, "internal/foo/bar.go", PolicyAuto)
 	if err != nil {
 		t.Fatalf("ResolvePolicyProfile failed: %v", err)
 	}
@@ -36,7 +38,10 @@ func TestResolvePolicyProfile_PathAndTeam(t *testing.T) {
 		t.Fatalf("write policy failed: %v", err)
 	}
 
-	profile, err := ResolvePolicyProfile(tmp, "internal/auth/token.go", PolicyAuto)
+	root, _ := os.OpenRoot(tmp)
+	defer root.Close()
+
+	profile, err := ResolvePolicyProfile(root, "internal/auth/token.go", PolicyAuto)
 	if err != nil {
 		t.Fatalf("ResolvePolicyProfile failed: %v", err)
 	}
@@ -44,7 +49,7 @@ func TestResolvePolicyProfile_PathAndTeam(t *testing.T) {
 		t.Fatalf("expected path policy strict to win, got %q", profile)
 	}
 
-	profile, err = ResolvePolicyProfile(tmp, "internal/other/file.go", PolicyAuto)
+	profile, err = ResolvePolicyProfile(root, "internal/other/file.go", PolicyAuto)
 	if err != nil {
 		t.Fatalf("ResolvePolicyProfile failed: %v", err)
 	}
@@ -52,7 +57,7 @@ func TestResolvePolicyProfile_PathAndTeam(t *testing.T) {
 		t.Fatalf("expected fallback default profile, got %q", profile)
 	}
 
-	explicit, err := ResolvePolicyProfile(tmp, "internal/auth/token.go", PolicyAggressive)
+	explicit, err := ResolvePolicyProfile(root, "internal/auth/token.go", PolicyAggressive)
 	if err != nil {
 		t.Fatalf("ResolvePolicyProfile explicit failed: %v", err)
 	}
