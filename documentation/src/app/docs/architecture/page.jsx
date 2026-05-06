@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import DocsShell from '@/components/DocsShell';
 
 export default function Architecture() {
@@ -77,10 +78,12 @@ export default function Architecture() {
               <div className="h-px flex-1 bg-[#222]"></div>
            </div>
            <div className="p-2 rounded-2xl bg-[#0a0a0a] border border-[#222] overflow-hidden group">
-              <img 
+              <Image 
                 src="/architecture.png" 
                 alt="Gitresolve System Architecture" 
-                className="w-full rounded-xl opacity-90 group-hover:opacity-100 transition-opacity"
+                width={1200}
+                height={800}
+                className="w-full h-auto rounded-xl opacity-90 group-hover:opacity-100 transition-opacity"
               />
               <div className="p-6 bg-black">
                 <p className="text-xs text-gray-500 leading-relaxed italic text-center">

@@ -211,7 +211,7 @@ export default function CommandsReference() {
           
           <div className="prose-layout text-gray-400">
             <p className="mb-6">
-              Reports decision metrics and top reason codes from local observability logs. Use this to monitor your team's automation efficiency.
+              Reports decision metrics and top reason codes from local observability logs. Use this to monitor your team&apos;s automation efficiency.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
               <FlagItem flag="--json" desc="Emit metrics as a machine-readable JSON object for CI pipes." />

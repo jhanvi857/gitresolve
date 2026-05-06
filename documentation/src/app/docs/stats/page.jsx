@@ -7,7 +7,7 @@ export default function StatsMetrics() {
   return (
     <DocsShell 
       title="Stats & Metrics" 
-      subtitle="Data-driven visibility into your team's conflict resolution trends."
+      subtitle="Data-driven visibility into your team&apos;s conflict resolution trends."
     >
       <div className="space-y-12">
         <section>
@@ -47,7 +47,7 @@ export default function StatsMetrics() {
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">Stable Reason Codes</h2>
           <p className="text-gray-400 mb-6">
-            Reason codes follow a hierarchical namespace to help you identify <i>why</i> a conflict wasn't auto-resolved.
+            Reason codes follow a hierarchical namespace to help you identify <i>why</i> a conflict wasn&apos;t auto-resolved.
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -56,7 +56,7 @@ export default function MergeFlow() {
            <h2 className="text-xl font-semibold text-white mb-6">The 3-Way Merge Process</h2>
            <div className="prose-layout text-gray-400 text-sm leading-relaxed space-y-4">
               <p>
-                Unlike simple "Ours vs Theirs", gitresolve attempts to find a <strong>Base Ancestor</strong> for every block. This allows us to determine what actually changed on each side:
+                Unlike simple &quot;Ours vs Theirs&quot;, gitresolve attempts to find a <strong>Base Ancestor</strong> for every block. This allows us to determine what actually changed on each side:
               </p>
               <ul className="list-disc pl-5 space-y-2">
                  <li>If Side A changed line 5 and Side B is identical to Base, we apply Side A automatically.</li>

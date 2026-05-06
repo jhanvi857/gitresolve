@@ -21,7 +21,7 @@ export default function Security() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
               </div>
               <h3 className="text-white font-medium mb-2">100% Offline</h3>
-              <p className="text-sm text-gray-500">The tool contains no networking code. It cannot send your code to a remote server because it doesn't know how to talk to the internet.</p>
+              <p className="text-sm text-gray-500">The tool contains no networking code. It cannot send your code to a remote server because it doesn&apos;t know how to talk to the internet.</p>
             </div>
             <div className="p-6 rounded-lg bg-[#0a0a0a] border border-[#222]">
               <div className="w-8 h-8 rounded bg-green-500/10 flex items-center justify-center mb-4">
@@ -49,9 +49,9 @@ export default function Security() {
 
          <section>
            <h2 className="text-xl font-semibold text-white mb-4">Integrity & Privacy</h2>
-           <p className="text-gray-400 leading-relaxed mb-6">
-             gitresolve uses a multi-stage verification and privacy process to ensure that resolutions are not just "done" but "correct" and "private".
-           </p>
+            <p className="text-gray-400 leading-relaxed mb-6">
+              gitresolve uses a multi-stage verification and privacy process to ensure that resolutions are not just &quot;done&quot; but &quot;correct&quot; and &quot;private&quot;.
+            </p>
            <ul className="space-y-4">
              <li className="flex gap-4">
                 <span className="text-blue-500 font-mono">01.</span>

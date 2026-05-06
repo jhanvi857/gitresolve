@@ -13,7 +13,7 @@ export default function PolicyProfiles() {
         <section>
           <h2 className="text-xl font-semibold text-white mb-4">Risk Management</h2>
           <p className="text-gray-400 leading-relaxed mb-6">
-            Not all code carries the same risk. A conflict in a documentation file is trivial, while a conflict in a payment processing handler is critical. Policy profiles allow you to tune <code className="text-gray-300">gitresolve</code>'s automation threshold based on the file's importance.
+            Not all code carries the same risk. A conflict in a documentation file is trivial, while a conflict in a payment processing handler is critical. Policy profiles allow you to tune <code className="text-gray-300">gitresolve</code>&apos;s automation threshold based on the file&apos;s importance.
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-10">
@@ -74,7 +74,7 @@ export default function PolicyProfiles() {
           <div className="space-y-4">
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-[#222]">
                <h4 className="text-white font-medium text-sm mb-1">Path Overrides</h4>
-               <p className="text-xs text-gray-500">The engine uses a <strong>longest-path match</strong>. If a file is in <code className="text-gray-400">internal/auth/utils.go</code>, it receives the "strict" profile even if the rest of <code className="text-gray-400">internal/</code> is balanced.</p>
+               <p className="text-xs text-gray-500">The engine uses a <strong>longest-path match</strong>. If a file is in <code className="text-gray-400">internal/auth/utils.go</code>, it receives the &quot;strict&quot; profile even if the rest of <code className="text-gray-400">internal/</code> is balanced.</p>
             </div>
             <div className="p-4 rounded-lg bg-[#0a0a0a] border border-[#222]">
                <h4 className="text-white font-medium text-sm mb-1">Previewing Policy</h4>
