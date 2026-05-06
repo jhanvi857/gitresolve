@@ -5,9 +5,9 @@ package chi
 // (MIT licensed)
 
 import (
+	"net/http"
 	"sort"
 	"strings"
-	"net/http"
 )
 
 type nodeTyp uint8

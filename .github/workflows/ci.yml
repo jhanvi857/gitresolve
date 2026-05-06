@@ -29,10 +29,12 @@ jobs:
 
       - name: Verify formatting
         run: |
-          # Only check files not in vendor/ or tests/
-          FILES=$(find . -name "*.go" -not -path "./vendor/*" -not -path "./tests/*")
-          if [ -n "$FILES" ]; then
-            test -z "$(gofmt -l $FILES)"
+          # Check for unformatted files, excluding vendor/, tests/, and evidence/
+          UNFORMATTED=$(gofmt -l . | grep -v "^vendor/" | grep -v "^tests/" | grep -v "^evidence/" || true)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "Unformatted files found:"
+            echo "$UNFORMATTED"
+            exit 1
           fi
 
       - name: Run tests
