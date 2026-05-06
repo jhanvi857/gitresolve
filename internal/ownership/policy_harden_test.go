@@ -29,7 +29,7 @@ func TestLoadPolicyConfig_Hardening(t *testing.T) {
 			wantErr: ErrPolicyUnknownKey("unknown_key").Error(),
 		},
 		{
-			name:    "too many path entries",
+			name: "too many path entries",
 			content: func() string {
 				c := `{"path_profiles": {`
 				for i := 0; i < 501; i++ {
@@ -40,7 +40,7 @@ func TestLoadPolicyConfig_Hardening(t *testing.T) {
 			wantErr: ErrPolicyTooManyEntries.Error(),
 		},
 		{
-			name:    "too many team entries",
+			name: "too many team entries",
 			content: func() string {
 				c := `{"team_profiles": {`
 				for i := 0; i < 101; i++ {

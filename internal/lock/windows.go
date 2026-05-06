@@ -3,8 +3,8 @@
 package lock
 
 import (
-	"os"
 	"golang.org/x/sys/windows"
+	"os"
 )
 
 func platformAcquire(f *os.File) error {
@@ -12,10 +12,10 @@ func platformAcquire(f *os.File) error {
 	// LOCKFILE_EXCLUSIVE_LOCK = 2
 	// LOCKFILE_FAIL_IMMEDIATELY = 1
 	var flags uint32 = windows.LOCKFILE_EXCLUSIVE_LOCK | windows.LOCKFILE_FAIL_IMMEDIATELY
-	
+
 	// Overlapped structure is required but can be zeroed for simple locking
 	overlapped := &windows.Overlapped{}
-	
+
 	// We lock the first byte of the file.
 	err := windows.LockFileEx(windows.Handle(f.Fd()), flags, 0, 1, 0, overlapped)
 	if err != nil {

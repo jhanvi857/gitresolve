@@ -172,4 +172,3 @@ func isLikelyText(path string) bool {
 	}
 	return false
 }
-

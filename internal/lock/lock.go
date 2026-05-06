@@ -32,13 +32,13 @@ func (l *RepoLock) Release() error {
 	if l.f == nil {
 		return nil
 	}
-	
+
 	platformRelease(l.f)
-	
+
 	path := l.f.Name()
 	l.f.Close()
 	l.f = nil
-	
+
 	_ = os.Remove(path)
 	return nil
 }

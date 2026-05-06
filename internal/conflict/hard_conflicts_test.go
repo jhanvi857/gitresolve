@@ -118,8 +118,8 @@ func TestNoAutoStructuredFlag(t *testing.T) {
 	c := &ConflictBlock{
 		FilePath:       "data.json",
 		BaseLines:      []string{"{\"key\": \"base\"}"},
-		OursLines:       []string{"{\"key\": \"ours\"}"},
-		TheirsLines:     []string{"{\"key\": \"base\"}"},
+		OursLines:      []string{"{\"key\": \"ours\"}"},
+		TheirsLines:    []string{"{\"key\": \"base\"}"},
 		CanAutoResolve: true, // Manually set for test
 		Type:           TypeStructured,
 	}
@@ -152,7 +152,7 @@ func TestValuesEqual(t *testing.T) {
 }
 func TestTSXConflictBlock(t *testing.T) {
 	c := &ConflictBlock{
-		FilePath:   "Component.tsx",
+		FilePath:    "Component.tsx",
 		OursLines:   []string{"const App = () => <div className='foo'>{count}</div>;"},
 		TheirsLines: []string{"const App = () => <div className='bar'>{total}</div>;"},
 	}
@@ -254,7 +254,7 @@ func TestAliasedImports(t *testing.T) {
 
 func TestDeleteModifySensitive(t *testing.T) {
 	c := &ConflictBlock{
-		FilePath: "internal/auth/provider.go",
+		FilePath:  "internal/auth/provider.go",
 		OursLines: []string{}, // deleted
 		TheirsLines: []string{
 			"func VerifyToken(token string) bool {",
@@ -317,7 +317,7 @@ func TestIndentationWhitespace(t *testing.T) {
 
 func TestLogicConflictBlock_Renames(t *testing.T) {
 	c := &ConflictBlock{
-		FilePath:   "util.js",
+		FilePath:    "util.js",
 		OursLines:   []string{"const calculateTotal = (price, tax) => price * tax;"},
 		TheirsLines: []string{"const getFullAmount = (val, rate) => val * rate;"},
 	}
@@ -329,8 +329,8 @@ func TestLogicConflictBlock_Renames(t *testing.T) {
 
 func TestConflictBlockedStructuredMerge(t *testing.T) {
 	c := &ConflictBlock{
-		FilePath:   "settings.json",
-		BaseLines:  []string{"{\"theme\": \"light\"}"},
+		FilePath:    "settings.json",
+		BaseLines:   []string{"{\"theme\": \"light\"}"},
 		OursLines:   []string{"{\"theme\": \"dark\"}"},
 		TheirsLines: []string{"{\"theme\": \"high-contrast\"}"},
 	}

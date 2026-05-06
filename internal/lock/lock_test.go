@@ -12,7 +12,7 @@ func TestAcquireLockContention(t *testing.T) {
 	os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0755)
 	root, _ := os.OpenRoot(repoDir)
 	defer root.Close()
-	
+
 	// First acquire should succeed
 	l1, err := Acquire(root)
 	if err != nil {
@@ -46,14 +46,14 @@ func TestAcquireLockContention(t *testing.T) {
 func TestAcquireConcurrency(t *testing.T) {
 	repoDir := t.TempDir()
 	os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0755)
-	
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	successCount := 0
 	failureCount := 0
-	
+
 	var locks []*RepoLock
-	
+
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
@@ -71,13 +71,13 @@ func TestAcquireConcurrency(t *testing.T) {
 			}
 		}()
 	}
-	
+
 	wg.Wait()
-	
+
 	for _, l := range locks {
 		l.Release()
 	}
-	
+
 	if successCount != 1 {
 		t.Errorf("Expected exactly 1 success, got %d", successCount)
 	}
