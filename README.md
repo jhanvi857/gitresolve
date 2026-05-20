@@ -4,6 +4,12 @@
   <img src="documentation/public/logo.png" width="240" alt="gitresolve logo">
 </p>
 
+<p align="center">
+  <a href="https://github.com/jhanvi857/gitresolve/actions/workflows/ci.yml"><img src="https://github.com/jhanvi857/gitresolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/jhanvi857/gitresolve" alt="Go Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+</p>
+
 A locally executed, safety-first Git merge conflict resolver with syntax-aware classification, structured data merging, and full decision auditability.
 
 Standard Git merge operations perform line-based text integration. `gitresolve` classifies conflicts into deterministic categories, applies targeted resolution strategies per conflict type, and escalates to manual review when automated resolution would be unsafe. Every decision is logged, queryable, and CI-gateable.
@@ -48,6 +54,23 @@ mv gitresolve /usr/local/bin/
 ---
 
 ## Quick Start
+
+### Build from source
+
+```bash
+git clone https://github.com/jhanvi857/gitresolve.git
+cd gitresolve
+make build
+./bin/gitresolve --help
+```
+
+### Run tests
+
+```bash
+make test
+```
+
+### Usage examples
 
 ```bash
 # View current conflicts with block-level severity
@@ -307,6 +330,12 @@ Beyond functional correctness, the suite includes:
 go test ./...
 ```
 
+### Test Organization
+
+- **Unit tests** (`*_test.go` files): Located alongside source code in `cmd/`, `internal/`, and `pkg/` directories.
+- **Integration tests**: Located in the `tests/` directory, with fixtures in `tests/testdata/` and infrastructure in `tests/integration/`.
+- **Test results**: See [test_suite_report.md](documentation/test_suite_report.md) for detailed validation results.
+
 ---
 
 ## Security
@@ -318,6 +347,8 @@ go test ./...
 - **Advisory Locking**: Native `flock(2)`/`LockFileEx` to prevent races and PID-reuse attacks.
 - **Privacy**: Sensitive content is cryptographically hashed (SHA-256) in logs.
 - **Verifiable Releases**: Signed with Cosign (OIDC), CycloneDX SBOMs included.
+
+**Validation Evidence**: Real-world evidence from resolver validation across open-source projects is available in [documentation/EVIDENCE.md](documentation/EVIDENCE.md).
 
 ---
 
