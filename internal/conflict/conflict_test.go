@@ -75,6 +75,50 @@ func TestClassifierAndAutoResolve_Imports(t *testing.T) {
 	}
 }
 
+func TestClassifierAndAutoResolve_IdenticalBothSides(t *testing.T) {
+	// Simulate what git WOULD produce if it didn't auto-resolve.
+	// When both sides have identical changes, this should be classified as TypeIdentical
+	// and auto-resolved with the reason code "strategy.identical_both_sides".
+	c := &ConflictBlock{
+		FilePath: "package/main.go",
+		OursLines: []string{
+			"func hello() string {",
+			"    return \"hello world\"",
+			"}",
+		},
+		TheirsLines: []string{
+			"func hello() string {",
+			"    return \"hello world\"",
+			"}",
+		},
+	}
+
+	Classify(c)
+
+	if c.Type != TypeIdentical {
+		t.Errorf("expected type Identical, got %v", c.Type)
+	}
+	if c.Severity != SeverityTrivial {
+		t.Errorf("expected severity Trivial, got %v", c.Severity)
+	}
+	if !c.CanAutoResolve {
+		t.Error("expected CanAutoResolve to be true for identical changes")
+	}
+	if c.Confidence < 0.95 {
+		t.Errorf("expected high confidence (>0.95), got %f", c.Confidence)
+	}
+
+	resolved := AutoResolve(c, Options{})
+	if !resolved {
+		t.Error("AutoResolve failed to resolve identical conflict")
+	}
+
+	expectedResolution := "func hello() string {\n    return \"hello world\"\n}"
+	if c.Resolution != expectedResolution {
+		t.Errorf("expected resolution `%s`, got `%s`", expectedResolution, c.Resolution)
+	}
+}
+
 func TestClassifier_LogicConflict(t *testing.T) {
 	c := &ConflictBlock{
 		FilePath: "auth/login.go",

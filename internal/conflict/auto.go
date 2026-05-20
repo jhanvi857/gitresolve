@@ -55,6 +55,11 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 
 	case TypeWhitespace:
 		c.Resolution = strings.Join(c.OursLines, "\n")
+		// Validate the resolution before returning
+		if err := Verify(c.FilePath, c.Resolution); err != nil {
+			SetManualEscalation(c, ReasonValidationSyntaxFailed, fmt.Sprintf("auto-resolved content failed validation: %v", err), "manually review and apply resolution strategy")
+			return false
+		}
 		return true
 
 	case TypeImport:
@@ -80,10 +85,20 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 			return false
 		}
 		c.Resolution = strings.Join(merged, "\n")
+		// Validate the resolution before returning
+		if err := Verify(c.FilePath, c.Resolution); err != nil {
+			SetManualEscalation(c, ReasonValidationSyntaxFailed, fmt.Sprintf("auto-resolved content failed validation: %v", err), "manually review and apply resolution strategy")
+			return false
+		}
 		return true
 
 	case TypeIdentical:
 		c.Resolution = strings.Join(c.OursLines, "\n")
+		// Validate the resolution before returning
+		if err := Verify(c.FilePath, c.Resolution); err != nil {
+			SetManualEscalation(c, ReasonValidationSyntaxFailed, fmt.Sprintf("auto-resolved content failed validation: %v", err), "manually review and apply resolution strategy")
+			return false
+		}
 		return true
 	}
 

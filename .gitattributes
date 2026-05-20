@@ -1,1 +1,4 @@
 vendor/** linguist-vendored=true
+tests/testdata/** linguist-detectable=false
+tests/integration/** linguist-detectable=false
+evidence/** linguist-detectable=false

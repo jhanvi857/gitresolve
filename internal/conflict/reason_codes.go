@@ -11,6 +11,7 @@ const (
 	ReasonSafetyIncompleteStructure   = "safety.incomplete_structure"
 	ReasonStrategyBothBlockedRisk     = "strategy.both_blocked_high_risk"
 	ReasonStrategyTimeoutAutoTheirs   = "strategy.timeout_auto_theirs"
+	ReasonStrategyIdenticalBothSides  = "strategy.identical_both_sides"
 	ReasonValidationSyntaxFailed      = "validation.syntax_failed"
 	ReasonStructuredAutoDisabled      = "structured.auto_disabled"
 	ReasonStructuredOverlap           = "structured.overlap"
@@ -31,6 +32,7 @@ var stableReasonCodeSet = map[string]struct{}{
 	ReasonSafetyIncompleteStructure:   {},
 	ReasonStrategyBothBlockedRisk:     {},
 	ReasonStrategyTimeoutAutoTheirs:   {},
+	ReasonStrategyIdenticalBothSides:  {},
 	ReasonValidationSyntaxFailed:      {},
 	ReasonStructuredAutoDisabled:      {},
 	ReasonStructuredOverlap:           {},
