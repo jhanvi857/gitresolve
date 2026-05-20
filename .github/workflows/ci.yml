@@ -17,7 +17,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version: '1.25.x'
+          check-latest: true
 
       - name: Verify module integrity
         run: go mod verify
