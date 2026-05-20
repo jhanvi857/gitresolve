@@ -14,6 +14,7 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -61,8 +62,12 @@ var mergeCmd = &cobra.Command{
 		if !dryRun && dbErr == nil {
 			head, headErr := r.HeadCommit()
 			if headErr == nil {
-				_ = db.SaveSession(repoPath, "merge", head)
-				_ = git.StoreHead(root, head)
+				if err := db.SaveSession(repoPath, "merge", head); err != nil {
+					logger.Debug().Err(err).Msg("failed to save session")
+				}
+				if err := git.StoreHead(root, head); err != nil {
+					logger.Debug().Err(err).Msg("failed to store head")
+				}
 			}
 		}
 
@@ -100,7 +105,9 @@ var mergeCmd = &cobra.Command{
 			}
 
 			content, err := io.ReadAll(f)
-			_ = f.Close()
+			if closeErr := f.Close(); closeErr != nil {
+				logger.Debug().Err(closeErr).Str("file", file).Msg("failed to close file")
+			}
 			if err != nil {
 				fmt.Println("Error reading file:", err)
 				continue
@@ -126,14 +133,16 @@ var mergeCmd = &cobra.Command{
 						fileAutoResolved++
 						autoResolved++
 						if dbErr == nil {
-							_ = db.SaveConflict(store.ConflictRecord{
+							if err := db.SaveConflict(store.ConflictRecord{
 								RepoPath:     repoPath,
 								FilePath:     file,
 								ConflictType: typeLabel(c.Type),
 								Severity:     severityLabel(c.Severity),
 								Strategy:     "auto",
-							})
-							_ = db.SaveDecision(store.DecisionRecord{
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save conflict record")
+							}
+							if err := db.SaveDecision(store.DecisionRecord{
 								RepoPath:     repoPath,
 								FilePath:     file,
 								Operation:    "merge",
@@ -144,20 +153,24 @@ var mergeCmd = &cobra.Command{
 								Reason:       c.ManualReason,
 								Confidence:   c.Confidence,
 								Shadow:       mergeShadow,
-							})
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+							}
 						}
 					} else {
 						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
 						manualEscalations++
 						if dbErr == nil {
-							_ = db.SaveConflict(store.ConflictRecord{
+							if err := db.SaveConflict(store.ConflictRecord{
 								RepoPath:     repoPath,
 								FilePath:     file,
 								ConflictType: typeLabel(c.Type),
 								Severity:     severityLabel(c.Severity),
 								Strategy:     "manual-required",
-							})
-							_ = db.SaveDecision(store.DecisionRecord{
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save conflict record")
+							}
+							if err := db.SaveDecision(store.DecisionRecord{
 								RepoPath:     repoPath,
 								FilePath:     file,
 								Operation:    "merge",
@@ -168,13 +181,15 @@ var mergeCmd = &cobra.Command{
 								Reason:       c.ManualReason,
 								Confidence:   c.Confidence,
 								Shadow:       mergeShadow,
-							})
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+							}
 						}
 					}
 				} else {
 					manualEscalations++
 					if dbErr == nil {
-						_ = db.SaveDecision(store.DecisionRecord{
+						if err := db.SaveDecision(store.DecisionRecord{
 							RepoPath:     repoPath,
 							FilePath:     file,
 							Operation:    "merge",
@@ -185,7 +200,9 @@ var mergeCmd = &cobra.Command{
 							Reason:       c.ManualReason,
 							Confidence:   c.Confidence,
 							Shadow:       mergeShadow,
-						})
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+						}
 					}
 				}
 			}
