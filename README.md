@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jhanvi857/gitresolve/actions/workflows/ci.yml"><img src="https://github.com/jhanvi857/gitresolve/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/jhanvi857/gitresolve/actions/workflows/ci.yml"><img src="https://github.com/jhanvi857/gitresolve/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/jhanvi857/gitresolve" alt="Go Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
 </p>
