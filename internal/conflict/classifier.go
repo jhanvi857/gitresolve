@@ -24,21 +24,21 @@ func Classify(c *ConflictBlock) {
 		return
 	}
 
-	// rule 1: whitespace only
-	// strip all whitespace from both sides and compare
-	// if they are identical after stripping = whitespace conflict
-	if isWhitespaceOnly(c.OursLines, c.TheirsLines) {
-		c.Type = TypeWhitespace
+	// rule 1: both sides made identical changes
+	// this happens when two devs independently fix the same bug
+	if linesIdentical(c.OursLines, c.TheirsLines) {
+		c.Type = TypeIdentical
 		c.Severity = SeverityTrivial
 		c.Confidence = 0.99
 		c.CanAutoResolve = true
 		return
 	}
 
-	// rule 2: both sides made identical changes
-	// this happens when two devs independently fix the same bug
-	if linesIdentical(c.OursLines, c.TheirsLines) {
-		c.Type = TypeIdentical
+	// rule 2: whitespace only
+	// strip all whitespace from both sides and compare
+	// if they are identical after stripping = whitespace conflict
+	if isWhitespaceOnly(c.OursLines, c.TheirsLines) {
+		c.Type = TypeWhitespace
 		c.Severity = SeverityTrivial
 		c.Confidence = 0.99
 		c.CanAutoResolve = true

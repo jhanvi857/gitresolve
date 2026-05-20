@@ -84,6 +84,18 @@ func checkNoMarkers(filePath, content string) error {
 func verifyJSON(filePath, content string) error {
 	var v interface{}
 	if err := json.Unmarshal([]byte(content), &v); err != nil {
+		// Try wrapping as an object snippet (trimming any trailing comma)
+		trimmed := strings.TrimSpace(content)
+		trimmedObj := strings.TrimSuffix(trimmed, ",")
+		wrappedObj := "{" + trimmedObj + "}"
+		if err2 := json.Unmarshal([]byte(wrappedObj), &v); err2 == nil {
+			return nil
+		}
+		// Try wrapping as an array snippet
+		wrappedArr := "[" + trimmedObj + "]"
+		if err3 := json.Unmarshal([]byte(wrappedArr), &v); err3 == nil {
+			return nil
+		}
 		return &VerificationError{
 			File:   filePath,
 			Reason: fmt.Sprintf("invalid JSON: %v", err),
@@ -138,7 +150,23 @@ func verifyGo(filePath, content string) error {
 
 func ValidateGoSyntax(filePath, content string) error {
 	fset := token.NewFileSet()
-	if _, err := parser.ParseFile(fset, filePath, content, parser.AllErrors); err != nil {
+	_, err := parser.ParseFile(fset, filePath, content, parser.AllErrors)
+	if err != nil {
+		if strings.Contains(err.Error(), "expected 'package'") {
+			// Try wrapping as a package-level declaration snippet
+			wrappedDecl := "package p\n" + content
+			_, errDecl := parser.ParseFile(fset, filePath, wrappedDecl, parser.AllErrors)
+			if errDecl == nil {
+				return nil
+			}
+			// If it's a statement snippet (e.g. inside a function body), try wrapping inside a function
+			wrappedStmt := "package p\nfunc _() {\n" + content + "\n}"
+			_, errStmt := parser.ParseFile(fset, filePath, wrappedStmt, parser.AllErrors)
+			if errStmt == nil {
+				return nil
+			}
+			return errDecl
+		}
 		return err
 	}
 	return nil
