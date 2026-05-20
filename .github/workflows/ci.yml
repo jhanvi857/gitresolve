@@ -41,6 +41,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+          install-mode: binary
 
       - name: Run tests
         run: go test -race -count=1 ./...
