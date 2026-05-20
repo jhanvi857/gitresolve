@@ -85,8 +85,12 @@ var resolveCmd = &cobra.Command{
 		if !resolveDryRun && dbErr == nil {
 			head, headErr := r.HeadCommit()
 			if headErr == nil {
-				_ = db.SaveSession(repoPath, "resolve", head)
-				_ = git.StoreHead(root, head)
+				if err := db.SaveSession(repoPath, "resolve", head); err != nil {
+					logger.Debug().Err(err).Msg("failed to save session")
+				}
+				if err := git.StoreHead(root, head); err != nil {
+					logger.Debug().Err(err).Msg("failed to store head")
+				}
 			}
 		}
 
@@ -114,7 +118,7 @@ var resolveCmd = &cobra.Command{
 				logger.Debug().Msg(fmt.Sprintf("file-size gate: file=%s size=%d max=%d", file, sizeBytes, resolverCfg.MaxFileBytes))
 				manualEscalations++
 				if dbErr == nil {
-					_ = db.SaveDecision(store.DecisionRecord{
+					if err := db.SaveDecision(store.DecisionRecord{
 						RepoPath:     repoPath,
 						FilePath:     file,
 						Operation:    "resolve",
@@ -125,7 +129,9 @@ var resolveCmd = &cobra.Command{
 						Reason:       reason,
 						Confidence:   1,
 						Shadow:       resolveShadow,
-					})
+					}); err != nil {
+						logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+					}
 				}
 				continue
 			}
@@ -209,7 +215,7 @@ var resolveCmd = &cobra.Command{
 					logger.Debug().Msg(fmt.Sprintf("resolution failure: file=%s start=%d end=%d err=%v", file, c.StartLine, c.EndLine, resolveErr))
 					manualEscalations++
 					if dbErr == nil {
-						_ = db.SaveDecision(store.DecisionRecord{
+						if err := db.SaveDecision(store.DecisionRecord{
 							RepoPath:     repoPath,
 							FilePath:     file,
 							Operation:    "resolve",
@@ -220,7 +226,9 @@ var resolveCmd = &cobra.Command{
 							Reason:       c.ManualReason,
 							Confidence:   c.Confidence,
 							Shadow:       resolveShadow,
-						})
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+						}
 					}
 					validationFailed++
 					failedFiles = append(failedFiles, file)
@@ -235,7 +243,7 @@ var resolveCmd = &cobra.Command{
 				if !result.Applied {
 					manualEscalations++
 					if dbErr == nil {
-						_ = db.SaveDecision(store.DecisionRecord{
+						if err := db.SaveDecision(store.DecisionRecord{
 							RepoPath:     repoPath,
 							FilePath:     file,
 							Operation:    "resolve",
@@ -246,7 +254,9 @@ var resolveCmd = &cobra.Command{
 							Reason:       c.ManualReason,
 							Confidence:   c.Confidence,
 							Shadow:       resolveShadow,
-						})
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+						}
 					}
 					fileSkipped = true
 					continue
@@ -266,7 +276,7 @@ var resolveCmd = &cobra.Command{
 					if result.TimeoutAuto {
 						action = "timeout-auto-theirs"
 					}
-					_ = db.SaveDecision(store.DecisionRecord{
+					if err := db.SaveDecision(store.DecisionRecord{
 						RepoPath:     repoPath,
 						FilePath:     file,
 						Operation:    "resolve",
@@ -277,7 +287,9 @@ var resolveCmd = &cobra.Command{
 						Reason:       c.ManualReason,
 						Confidence:   c.Confidence,
 						Shadow:       resolveShadow,
-					})
+					}); err != nil {
+						logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+					}
 				}
 
 				if isAuto {
@@ -298,7 +310,7 @@ var resolveCmd = &cobra.Command{
 			newContent := conflict.CompileResolution(content, conflicts)
 			if resolveShadow {
 				if dbErr == nil {
-					_ = db.SaveDecision(store.DecisionRecord{
+					if err := db.SaveDecision(store.DecisionRecord{
 						RepoPath:      repoPath,
 						FilePath:      file,
 						Operation:     "resolve",
@@ -311,7 +323,9 @@ var resolveCmd = &cobra.Command{
 						Shadow:        true,
 						OriginalHash:  hashContent(content),
 						SimulatedHash: hashContent([]byte(newContent)),
-					})
+					}); err != nil {
+						logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+					}
 				}
 				fmt.Printf("[shadow] simulated resolution for %s (no write)\n", file)
 				continue
@@ -377,7 +391,9 @@ var resolveCmd = &cobra.Command{
 
 			if dbErr == nil {
 				for _, c := range conflicts {
-					_ = db.SaveConflict(storeConflict(repoPath, file, c, resolveStrategy))
+					if err := db.SaveConflict(storeConflict(repoPath, file, c, resolveStrategy)); err != nil {
+						logger.Warn().Err(err).Str("file", file).Msg("failed to save conflict record")
+					}
 				}
 			}
 
@@ -462,7 +478,9 @@ func readConflictFileWithLimit(root *os.Root, file string, cfg conflict.Resolver
 	}
 
 	content, readErr := io.ReadAll(f)
-	_ = f.Close()
+	if err := f.Close(); err != nil {
+		logger.Debug().Err(err).Str("file", file).Msg("failed to close file")
+	}
 	if readErr != nil {
 		return nil, false, size, readErr
 	}
