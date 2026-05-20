@@ -24,7 +24,9 @@ func HandleSignals(r *git.Repository) {
 		<-c
 		if r != nil {
 			fmt.Printf("\nInterrupted. Releasing lock on %s...\n", r.Path)
-			_ = git.Close(r)
+			if err := git.Close(r); err != nil {
+				logger.Debug().Err(err).Msg("failed to close git repository")
+			}
 		}
 		os.Exit(1)
 	}()

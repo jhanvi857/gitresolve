@@ -5,6 +5,7 @@ import (
 
 	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/safepath"
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +71,9 @@ var undoCmd = &cobra.Command{
 			fmt.Println("Warning: reset succeeded but could not prune session history:", err)
 		}
 
-		_ = git.ClearStoredHead(root)
+		if err := git.ClearStoredHead(root); err != nil {
+			logger.Debug().Err(err).Msg("failed to clear stored head")
+		}
 		fmt.Println("Undo successful.")
 	},
 }

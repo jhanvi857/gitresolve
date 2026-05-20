@@ -7,6 +7,7 @@ import (
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/safepath"
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,9 @@ var statusCmd = &cobra.Command{
 			}
 
 			content, err := io.ReadAll(f)
-			_ = f.Close()
+			if closeErr := f.Close(); closeErr != nil {
+				logger.Debug().Err(closeErr).Str("file", file).Msg("failed to close file")
+			}
 			if err != nil {
 				fmt.Printf("  --     read-error      --    %s (%v)\n", file, err)
 				continue
