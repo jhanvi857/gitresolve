@@ -51,6 +51,12 @@ var mergeCmd = &cobra.Command{
 			fmt.Println("Fatal: Failed to open git repository: ", err)
 			return
 		}
+		defer func() {
+			if rec := recover(); rec != nil {
+				_ = git.Close(r)
+				panic(rec)
+			}
+		}()
 		defer git.Close(r)
 		HandleSignals(r)
 
@@ -211,7 +217,7 @@ var mergeCmd = &cobra.Command{
 				newContent := conflict.CompileResolution(content, conflicts)
 				if mergeShadow {
 					if dbErr == nil {
-						_ = db.SaveDecision(store.DecisionRecord{
+						if err := db.SaveDecision(store.DecisionRecord{
 							RepoPath:      repoPath,
 							FilePath:      file,
 							Operation:     "merge",
@@ -224,7 +230,9 @@ var mergeCmd = &cobra.Command{
 							Shadow:        true,
 							OriginalHash:  hashContent(content),
 							SimulatedHash: hashContent([]byte(newContent)),
-						})
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save shadow decision record")
+						}
 					}
 					fmt.Printf("[shadow] simulated resolution for %s (no write)\n", file)
 					continue
@@ -259,7 +267,9 @@ var mergeCmd = &cobra.Command{
 				}
 
 				if fileAutoResolved == len(conflicts) && !dryRun {
-					git.MarkResolved(r, file)
+					if err := git.MarkResolved(r, file); err != nil {
+						fmt.Printf("Error marking %s as resolved: %v\n", file, err)
+					}
 				}
 				filesUpdated++
 			}

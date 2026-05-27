@@ -34,6 +34,12 @@ var statusCmd = &cobra.Command{
 			fmt.Println("Fatal: Failed to open git repository:", err)
 			return
 		}
+		defer func() {
+			if rec := recover(); rec != nil {
+				_ = git.Close(r)
+				panic(rec)
+			}
+		}()
 		defer git.Close(r)
 
 		files, err := git.ConflictedFiles(r)

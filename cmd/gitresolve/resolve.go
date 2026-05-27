@@ -60,13 +60,23 @@ var resolveCmd = &cobra.Command{
 			fmt.Println("Fatal: Failed to open git repository:", err)
 			return
 		}
+		defer func() {
+			if rec := recover(); rec != nil {
+				_ = git.Close(r)
+				panic(rec)
+			}
+		}()
 		defer git.Close(r)
 		HandleSignals(r)
 
 		files, err := git.ConflictedFiles(r)
 		if err != nil {
 			fmt.Println("No unmerged files in index. Scanning for mis-staged markers...")
-			files, _ = git.ScanForMarkers(root)
+			var scanErr error
+			files, scanErr = git.ScanForMarkers(root)
+			if scanErr != nil {
+				fmt.Println("Error scanning for markers:", scanErr)
+			}
 		}
 
 		if len(files) == 0 {
@@ -177,7 +187,7 @@ var resolveCmd = &cobra.Command{
 					manualEscalations++
 					conflict.SetManualEscalation(c, conflict.ReasonStrategyBothBlockedRisk, "BOTH disabled by strict policy profile for source file", "use ours/theirs/manual under strict policy")
 					if dbErr == nil {
-						_ = db.SaveDecision(store.DecisionRecord{
+						if err := db.SaveDecision(store.DecisionRecord{
 							RepoPath:     repoPath,
 							FilePath:     file,
 							Operation:    "resolve",
@@ -188,7 +198,9 @@ var resolveCmd = &cobra.Command{
 							Reason:       c.ManualReason,
 							Confidence:   c.Confidence,
 							Shadow:       resolveShadow,
-						})
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+						}
 					}
 					fileSkipped = true
 					continue

@@ -2,6 +2,7 @@ package lock
 
 import (
 	"errors"
+	"fmt"
 	"os"
 )
 
@@ -14,11 +15,14 @@ var ErrLockContention = errors.New("repository is locked by another gitresolve p
 const LockFile = ".gitresolve/repo.lock"
 
 func Acquire(root *os.Root) (*RepoLock, error) {
-	// safepath: CWE-22 hardened
-	f, err := root.OpenFile(LockFile, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := root.OpenFile(LockFile, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 	if err != nil {
+		if os.IsExist(err) {
+			return nil, ErrLockContention
+		}
 		return nil, err
 	}
+	fmt.Fprintf(f, "%d\n", os.Getpid())
 
 	if err := platformAcquire(f); err != nil {
 		f.Close()
@@ -33,12 +37,19 @@ func (l *RepoLock) Release() error {
 		return nil
 	}
 
-	platformRelease(l.f)
+	var releaseErr error
+	if err := platformRelease(l.f); err != nil {
+		releaseErr = err
+	}
 
 	path := l.f.Name()
-	l.f.Close()
+	if err := l.f.Close(); err != nil && releaseErr == nil {
+		releaseErr = err
+	}
 	l.f = nil
 
-	_ = os.Remove(path)
-	return nil
+	if err := os.Remove(path); err != nil && releaseErr == nil {
+		releaseErr = err
+	}
+	return releaseErr
 }
