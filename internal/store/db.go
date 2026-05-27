@@ -29,6 +29,24 @@ func Open(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("store.Open: %w", err)
 	}
 
+	_, err = conn.Exec(`PRAGMA journal_mode=WAL`)
+	if err != nil {
+		conn.Close()
+		if strings.Contains(err.Error(), "file is not a database") {
+			return nil, fmt.Errorf("%w: %v", ErrDBCorrupt, err)
+		}
+		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
+	}
+
+	_, err = conn.Exec(`PRAGMA busy_timeout=5000`)
+	if err != nil {
+		conn.Close()
+		if strings.Contains(err.Error(), "file is not a database") {
+			return nil, fmt.Errorf("%w: %v", ErrDBCorrupt, err)
+		}
+		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
+	}
+
 	db := &DB{conn: conn}
 
 	// Init sequence
