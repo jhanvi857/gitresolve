@@ -182,7 +182,7 @@ func ValidateGoSyntax(filePath, content string) error {
 		return fmt.Errorf("vet: write: %w", err)
 	}
 	tmp.Close()
-	cmd := exec.Command("go", "vet", tmp.Name())
+	cmd := exec.Command("go", "vet", tmp.Name()) // #nosec G204 -- fixed command, temp file path is generated locally
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("go vet failed: %s", out)
 	}

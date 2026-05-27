@@ -9,8 +9,13 @@ import (
 
 func TestAcquireLockContention(t *testing.T) {
 	repoDir := t.TempDir()
-	os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0755)
-	root, _ := os.OpenRoot(repoDir)
+	if err := os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0o755); err != nil {
+		t.Fatalf("mkdir .gitresolve: %v", err)
+	}
+	root, err := os.OpenRoot(repoDir)
+	if err != nil {
+		t.Fatalf("open root: %v", err)
+	}
 	defer root.Close()
 
 	// First acquire should succeed
@@ -18,7 +23,7 @@ func TestAcquireLockContention(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected first acquire to succeed, got %v", err)
 	}
-	defer l1.Release()
+	defer func() { _ = l1.Release() }()
 
 	// Second acquire should fail with ErrLockContention
 	l2, err := Acquire(root)
@@ -26,7 +31,7 @@ func TestAcquireLockContention(t *testing.T) {
 		t.Fatalf("Expected ErrLockContention, got %v", err)
 	}
 	if l2 != nil {
-		l2.Release()
+		_ = l2.Release()
 		t.Fatal("Expected second lock to be nil")
 	}
 
@@ -40,12 +45,14 @@ func TestAcquireLockContention(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected third acquire to succeed after release, got %v", err)
 	}
-	defer l3.Release()
+	defer func() { _ = l3.Release() }()
 }
 
 func TestAcquireConcurrency(t *testing.T) {
 	repoDir := t.TempDir()
-	os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0755)
+	if err := os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0o755); err != nil {
+		t.Fatalf("mkdir .gitresolve: %v", err)
+	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -59,6 +66,9 @@ func TestAcquireConcurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			root, _ := os.OpenRoot(repoDir)
+			if root == nil {
+				return
+			}
 			defer root.Close()
 			l, err := Acquire(root)
 			mu.Lock()
@@ -75,7 +85,7 @@ func TestAcquireConcurrency(t *testing.T) {
 	wg.Wait()
 
 	for _, l := range locks {
-		l.Release()
+		_ = l.Release()
 	}
 
 	if successCount != 1 {

@@ -12,7 +12,9 @@ func TestResolvePolicy_BinarySearch(t *testing.T) {
 	// We can use a temp dir.
 	tmpDir := t.TempDir()
 	dotGitResolve := filepath.Join(tmpDir, ".gitresolve")
-	os.MkdirAll(dotGitResolve, 0755)
+	if err := os.MkdirAll(dotGitResolve, 0o755); err != nil {
+		t.Fatalf("mkdir .gitresolve: %v", err)
+	}
 
 	policyContent := `{
 		"default": "balanced",
@@ -22,7 +24,9 @@ func TestResolvePolicy_BinarySearch(t *testing.T) {
 			"x/": "auto"
 		}
 	}`
-	os.WriteFile(filepath.Join(dotGitResolve, "policy.json"), []byte(policyContent), 0644)
+	if err := os.WriteFile(filepath.Join(dotGitResolve, "policy.json"), []byte(policyContent), 0o644); err != nil {
+		t.Fatalf("write policy.json: %v", err)
+	}
 
 	tests := []struct {
 		filePath string
@@ -35,7 +39,10 @@ func TestResolvePolicy_BinarySearch(t *testing.T) {
 		{"y/file.go", "balanced"},
 	}
 
-	root, _ := os.OpenRoot(tmpDir)
+	root, err := os.OpenRoot(tmpDir)
+	if err != nil {
+		t.Fatalf("open root: %v", err)
+	}
 	defer root.Close()
 
 	for _, tt := range tests {

@@ -11,7 +11,9 @@ import (
 func TestLoadPolicyConfig_Hardening(t *testing.T) {
 	tmpDir := t.TempDir()
 	dotGitResolve := filepath.Join(tmpDir, ".gitresolve")
-	os.MkdirAll(dotGitResolve, 0755)
+	if err := os.MkdirAll(dotGitResolve, 0o755); err != nil {
+		t.Fatalf("mkdir .gitresolve: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -74,20 +76,25 @@ func TestLoadPolicyConfig_Hardening(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(dotGitResolve, "policy.json")
-			os.WriteFile(path, []byte(tt.content), 0644)
+			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
+				t.Fatalf("write policy.json: %v", err)
+			}
 
-			root, _ := os.OpenRoot(tmpDir)
+			root, err := os.OpenRoot(tmpDir)
+			if err != nil {
+				t.Fatalf("open root: %v", err)
+			}
 			defer root.Close()
-			_, err := LoadPolicyConfig(root)
+			_, loadErr := LoadPolicyConfig(root)
 			if tt.wantErr != "" {
-				if err == nil {
+				if loadErr == nil {
 					t.Fatal("expected error, got nil")
 				}
-				if err.Error() != tt.wantErr {
-					t.Errorf("expected error %q, got %q", tt.wantErr, err.Error())
+				if loadErr.Error() != tt.wantErr {
+					t.Errorf("expected error %q, got %q", tt.wantErr, loadErr.Error())
 				}
-			} else if err != nil {
-				t.Errorf("unexpected error: %v", err)
+			} else if loadErr != nil {
+				t.Errorf("unexpected error: %v", loadErr)
 			}
 		})
 	}

@@ -16,7 +16,7 @@ func TestSafeOpen_NormalPath(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(file, []byte("ok"), 0o644); err != nil {
+	if err := os.WriteFile(file, []byte("ok"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestSafeOpen_RejectsSymlinkEscape(t *testing.T) {
 	repo := t.TempDir()
 	outsideDir := t.TempDir()
 	outsideFile := filepath.Join(outsideDir, "secret.txt")
-	if err := os.WriteFile(outsideFile, []byte("secret"), 0o644); err != nil {
+	if err := os.WriteFile(outsideFile, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("seed outside file: %v", err)
 	}
 
@@ -104,7 +104,7 @@ func TestSafeWrite_SymlinkSwapCannotEscapeRoot(t *testing.T) {
 	repo := t.TempDir()
 	outsideDir := t.TempDir()
 	outsideFile := filepath.Join(outsideDir, "outside.txt")
-	if err := os.WriteFile(outsideFile, []byte("outside-original"), 0o644); err != nil {
+	if err := os.WriteFile(outsideFile, []byte("outside-original"), 0o600); err != nil {
 		t.Fatalf("seed outside file: %v", err)
 	}
 

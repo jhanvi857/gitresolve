@@ -199,10 +199,7 @@ func importBlockParses(filePath string, merged []string) bool {
 		snippet := block + "\nconst __gitresolve_probe = 1;\n"
 		_, err := analysis.ParseFile("probe"+ext, []byte(snippet))
 		if err != nil {
-			if strings.Contains(err.Error(), "requires cgo-enabled build") {
-				return true
-			}
-			return false
+			return strings.Contains(err.Error(), "requires cgo-enabled build")
 		}
 	}
 
