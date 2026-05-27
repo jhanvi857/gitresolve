@@ -69,7 +69,7 @@ export default function StatsCommand() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Stable Reason Codes</h2>
             <p className="text-[#a1a1aa] text-[16px] font-medium">
-              Reason codes follow a hierarchical namespace to help you identify <i>why</i> a conflict wasn't auto-resolved.
+              Reason codes follow a hierarchical namespace to help you identify <i>why</i> a conflict wasn&apos;t auto-resolved.
             </p>
           </div>
           
