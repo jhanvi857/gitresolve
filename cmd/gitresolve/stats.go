@@ -56,7 +56,11 @@ var statsCmd = &cobra.Command{
 				"actions":                actions,
 				"top_reason_codes":       reasons,
 			}
-			enc, _ := json.MarshalIndent(payload, "", "  ")
+			enc, err := json.MarshalIndent(payload, "", "  ")
+			if err != nil {
+				fmt.Println("Error encoding stats response:", err)
+				return
+			}
 			fmt.Println(string(enc))
 			return
 		}

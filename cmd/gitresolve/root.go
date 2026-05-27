@@ -23,7 +23,7 @@ and deterministic rule-based reasoning, auto-resolves safe conflict types,
 detects cross-file semantic breakages after merge, and predicts conflicts 
 before they happen.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		lvl := zerolog.WarnLevel
+		var lvl zerolog.Level
 		if verbose {
 			lvl = zerolog.InfoLevel
 		} else {
