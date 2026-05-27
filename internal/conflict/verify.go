@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -168,6 +170,21 @@ func ValidateGoSyntax(filePath, content string) error {
 			return errDecl
 		}
 		return err
+	}
+
+	tmp, err := os.CreateTemp("", "gitresolve-vet-*.go")
+	if err != nil {
+		return fmt.Errorf("vet: temp file: %w", err)
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	if _, err := tmp.Write([]byte(content)); err != nil {
+		return fmt.Errorf("vet: write: %w", err)
+	}
+	tmp.Close()
+	cmd := exec.Command("go", "vet", tmp.Name())
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("go vet failed: %s", out)
 	}
 	return nil
 }
