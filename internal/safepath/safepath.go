@@ -32,10 +32,10 @@ func SetForceAllowUnsupported(force bool) {
 	atomic.StoreUint32(&forceUnsupported, 0)
 }
 
-func isForceAllowed() bool {
+func IsForceAllowed() bool {
 	return atomic.LoadUint32(&forceUnsupported) == 1
 }
 
-func unsupportedPlatformErr() error {
+func UnsupportedPlatformErr() error {
 	return UnsupportedPlatformError{Platform: runtime.GOOS}
 }

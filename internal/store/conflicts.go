@@ -50,7 +50,7 @@ func (db *DB) SaveConflict(r ConflictRecord) error {
 	}
 
 	// Housekeeping: Cap per-repo history to prevent unbounded growth.
-	pruneResult, _ := db.conn.Exec(`
+	pruneResult, err := db.conn.Exec(`
 		DELETE FROM conflicts 
 		WHERE id IN (
 			SELECT id FROM conflicts 
@@ -58,6 +58,9 @@ func (db *DB) SaveConflict(r ConflictRecord) error {
 			ORDER BY resolved_at DESC 
 			LIMIT -1 OFFSET ?
 		)`, r.RepoPath, capValue)
+	if err != nil {
+		return fmt.Errorf("SaveConflict prune: %w", err)
+	}
 
 	if pruneResult != nil {
 		if prunedCount, rowsErr := pruneResult.RowsAffected(); rowsErr == nil && prunedCount > 0 {

@@ -20,6 +20,9 @@ func platformAcquire(f *os.File) error {
 	return nil
 }
 
-func platformRelease(f *os.File) {
-	_ = unix.Flock(int(f.Fd()), unix.LOCK_UN)
+func platformRelease(f *os.File) error {
+	if err := unix.Flock(int(f.Fd()), unix.LOCK_UN); err != nil {
+		return err
+	}
+	return nil
 }

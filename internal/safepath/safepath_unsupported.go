@@ -9,8 +9,8 @@ import (
 )
 
 func RepoRoot(repoDir string) (*os.Root, error) {
-	if !isForceAllowed() {
-		return nil, unsupportedPlatformErr()
+	if !IsForceAllowed() {
+		return nil, UnsupportedPlatformErr()
 	}
 	return nil, nil
 }
@@ -19,8 +19,8 @@ func SafeOpen(root *os.Root, relPath string) (*os.File, error) {
 	if !filepath.IsLocal(relPath) {
 		return nil, ErrUnsafePath
 	}
-	if !isForceAllowed() {
-		return nil, unsupportedPlatformErr()
+	if !IsForceAllowed() {
+		return nil, UnsupportedPlatformErr()
 	}
 	f, err := os.Open(relPath)
 	if err != nil {
@@ -33,8 +33,8 @@ func SafeWrite(root *os.Root, relPath string, data []byte, perm os.FileMode) err
 	if !filepath.IsLocal(relPath) {
 		return ErrUnsafePath
 	}
-	if !isForceAllowed() {
-		return unsupportedPlatformErr()
+	if !IsForceAllowed() {
+		return UnsupportedPlatformErr()
 	}
 	return os.WriteFile(relPath, data, perm)
 }

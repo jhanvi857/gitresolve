@@ -40,7 +40,9 @@ func Open(path string, root *os.Root) (*Repository, error) {
 // closing repo and release lock.
 func Close(r *Repository) error {
 	if r.lock != nil {
-		_ = r.lock.Release()
+		if err := r.lock.Release(); err != nil {
+			return fmt.Errorf("Close: %w", err)
+		}
 	}
 	return nil
 }

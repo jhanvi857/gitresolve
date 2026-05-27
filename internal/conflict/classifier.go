@@ -113,7 +113,7 @@ func Classify(c *ConflictBlock) {
 		return
 	}
 
-	// rule 7: check for critical files (go.mod, etc. which might not be structured)
+	// rule 8: check for critical files (go.mod, etc. which might not be structured)
 	if analysis.IsCriticalFile(c.FilePath) {
 		c.Type = TypeLogic
 		c.Severity = SeverityHigh
@@ -330,18 +330,20 @@ func containsFuncDef(lines []string) bool {
 }
 
 func isSensitivePath(filePath string) bool {
-	// file paths containing these words get critical severity
-	// because bugs in these areas have serious consequences
 	sensitivePatterns := []string{
 		"auth", "security", "crypto", "password",
 		"token", "secret", "migration", "payment",
 		"billing", "admin",
 	}
-
-	lowerPath := strings.ToLower(filePath)
-	for _, pattern := range sensitivePatterns {
-		if strings.Contains(lowerPath, pattern) {
-			return true
+	normalized := strings.ToLower(filepath.ToSlash(filePath))
+	segments := strings.Split(normalized, "/")
+	for _, seg := range segments {
+		// strip extension from the final segment for matching
+		seg = strings.TrimSuffix(seg, filepath.Ext(seg))
+		for _, pattern := range sensitivePatterns {
+			if seg == pattern {
+				return true
+			}
 		}
 	}
 	return false

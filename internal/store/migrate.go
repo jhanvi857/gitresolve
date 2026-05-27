@@ -60,12 +60,16 @@ func (db *DB) migrate() error {
 		}
 
 		if _, err := tx.Exec(sql); err != nil {
-			tx.Rollback()
+			if rollErr := tx.Rollback(); rollErr != nil {
+				return fmt.Errorf("migration %d failed: %w (rollback failed: %v)", version, err, rollErr)
+			}
 			return fmt.Errorf("migration %d failed: %w", version, err)
 		}
 
 		if _, err := tx.Exec("INSERT INTO _schema_version (version) VALUES (?)", version); err != nil {
-			tx.Rollback()
+			if rollErr := tx.Rollback(); rollErr != nil {
+				return fmt.Errorf("failed to update schema version to %d: %w (rollback failed: %v)", version, err, rollErr)
+			}
 			return fmt.Errorf("failed to update schema version to %d: %w", version, err)
 		}
 

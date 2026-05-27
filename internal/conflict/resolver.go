@@ -221,12 +221,12 @@ func buildBothResolution(c *ConflictBlock) (string, error) {
 	if oursDepth > 0 || theirsDepth > 0 {
 		combined := make([]string, 0, len(c.OursLines)+len(c.TheirsLines)+3)
 		combined = append(combined, c.OursLines...)
-		if oursDepth > 0 {
+		for i := 0; i < oursDepth; i++ {
 			combined = append(combined, "}")
 		}
 		combined = append(combined, "")
 		combined = append(combined, c.TheirsLines...)
-		if theirsDepth > 0 {
+		for i := 0; i < theirsDepth; i++ {
 			combined = append(combined, "}")
 		}
 		return strings.Join(combined, "\n"), nil

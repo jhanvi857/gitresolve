@@ -28,7 +28,10 @@ func platformAcquire(f *os.File) error {
 	return nil
 }
 
-func platformRelease(f *os.File) {
+func platformRelease(f *os.File) error {
 	overlapped := &windows.Overlapped{}
-	_ = windows.UnlockFileEx(windows.Handle(f.Fd()), 0, 1, 0, overlapped)
+	if err := windows.UnlockFileEx(windows.Handle(f.Fd()), 0, 1, 0, overlapped); err != nil {
+		return err
+	}
+	return nil
 }

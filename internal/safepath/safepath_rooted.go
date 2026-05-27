@@ -68,7 +68,9 @@ func SafeWrite(root *os.Root, relPath string, data []byte, perm os.FileMode) err
 	cleanup := true
 	defer func() {
 		if cleanup {
-			_ = root.Remove(tmpPath)
+			if err := root.Remove(tmpPath); err != nil {
+				_ = err
+			}
 		}
 	}()
 

@@ -45,6 +45,12 @@ func AutoResolve(c *ConflictBlock, opts Options) bool {
 
 		if err == nil && !res.HasConflicts {
 			c.Resolution = res.Content
+			if err := Verify(c.FilePath, c.Resolution); err != nil {
+				SetManualEscalation(c, ReasonValidationSyntaxFailed,
+					fmt.Sprintf("structured merge output failed validation: %v", err),
+					"manually review and apply resolution strategy")
+				return false
+			}
 			return true
 		}
 		if err != nil {
