@@ -26,7 +26,7 @@ func TestResolvePolicyProfile_PathAndTeam(t *testing.T) {
 	}
 
 	ownersJSON := `{"owners":{"internal/auth/":"security"}}`
-	if err := os.WriteFile(filepath.Join(tmp, ".gitresolve", "owners.json"), []byte(ownersJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, ".gitresolve", "owners.json"), []byte(ownersJSON), 0o600); err != nil {
 		t.Fatalf("write owners failed: %v", err)
 	}
 	policyJSON := `{
@@ -34,7 +34,7 @@ func TestResolvePolicyProfile_PathAndTeam(t *testing.T) {
   "path_profiles":{"internal/auth/":"strict"},
   "team_profiles":{"security":"aggressive"}
 }`
-	if err := os.WriteFile(filepath.Join(tmp, ".gitresolve", "policy.json"), []byte(policyJSON), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, ".gitresolve", "policy.json"), []byte(policyJSON), 0o600); err != nil {
 		t.Fatalf("write policy failed: %v", err)
 	}
 

@@ -24,7 +24,7 @@ func TestResolvePolicy_BinarySearch(t *testing.T) {
 			"x/": "auto"
 		}
 	}`
-	if err := os.WriteFile(filepath.Join(dotGitResolve, "policy.json"), []byte(policyContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dotGitResolve, "policy.json"), []byte(policyContent), 0o600); err != nil {
 		t.Fatalf("write policy.json: %v", err)
 	}
 

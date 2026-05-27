@@ -19,7 +19,7 @@ func TestReadConflictFileWithLimit_SkipsAndLogsLargeFile(t *testing.T) {
 	for i := range data {
 		data[i] = 'a'
 	}
-	if err := os.WriteFile(filePath, data, 0o644); err != nil {
+	if err := os.WriteFile(filePath, data, 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
 

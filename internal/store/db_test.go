@@ -12,7 +12,7 @@ func TestOpenCorruptDB(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "corrupt.db")
 
 	// Write garbage to the file
-	err := os.WriteFile(dbPath, []byte("NOT A SQLITE DATABASE FILE"), 0644)
+	err := os.WriteFile(dbPath, []byte("NOT A SQLITE DATABASE FILE"), 0o600)
 	if err != nil {
 		t.Fatalf("failed to write garbage: %v", err)
 	}
