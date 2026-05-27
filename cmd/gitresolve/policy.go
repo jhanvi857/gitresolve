@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/jhanvi857/gitresolve/internal/ownership"
 	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/spf13/cobra"
@@ -41,10 +42,11 @@ var policyCheckCmd = &cobra.Command{
 		}
 		defer root.Close()
 
-		inputPath := filepath.Clean(args[0])
-		absPath := inputPath
-		if !filepath.IsAbs(absPath) {
-			absPath = filepath.Join(repoRoot, inputPath)
+		inputPath := args[0]
+		absPath, err := securejoin.SecureJoin(repoRoot, inputPath)
+		if err != nil {
+			fmt.Println("Policy check failed: path traversal rejected:", err)
+			return
 		}
 
 		relPath, err := filepath.Rel(repoRoot, absPath)
@@ -74,7 +76,11 @@ var policyCheckCmd = &cobra.Command{
 				"strict_blocks_both_for_file":   strictBlocksBoth,
 				"strict_source_like_extensions": strictPolicySourceLikeExtensions(),
 			}
-			enc, _ := json.MarshalIndent(payload, "", "  ")
+			enc, err := json.MarshalIndent(payload, "", "  ")
+			if err != nil {
+				fmt.Println("Error encoding policy check response:", err)
+				return
+			}
 			fmt.Println(string(enc))
 			return
 		}

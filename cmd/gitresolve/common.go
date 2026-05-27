@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
 	"github.com/jhanvi857/gitresolve/internal/ownership"
@@ -37,9 +38,16 @@ func dbPathForRepo(repoPath string) string {
 		if filepath.IsAbs(envPath) {
 			return envPath
 		}
-		return filepath.Join(repoPath, envPath)
+		safePath, err := securejoin.SecureJoin(repoPath, envPath)
+		if err == nil {
+			return safePath
+		}
 	}
-	return filepath.Join(repoPath, ".gitresolve", "conflicts.db")
+	safePath, err := securejoin.SecureJoin(repoPath, filepath.Join(".gitresolve", "conflicts.db"))
+	if err != nil {
+		return filepath.Join(repoPath, ".gitresolve", "conflicts.db")
+	}
+	return safePath
 }
 
 func openStore(repoPath string) (*store.DB, error) {
@@ -65,13 +73,9 @@ func ValidatePath(repoRoot, filePath string) error {
 		return fmt.Errorf("resolving repo root: %w", err)
 	}
 
-	absFile, err := filepath.Abs(filepath.Join(repoRoot, filePath))
+	absFile, err := securejoin.SecureJoin(absRoot, filePath)
 	if err != nil {
-		return fmt.Errorf("resolving file path: %w", err)
-	}
-
-	if !strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) && absFile != absRoot {
-		return fmt.Errorf("path %q escapes repository root", filePath)
+		return fmt.Errorf("path traversal rejected: %w", err)
 	}
 
 	realRoot, err := filepath.EvalSymlinks(absRoot)
@@ -131,12 +135,6 @@ func typeLabel(t conflict.ConflictType) string {
 	default:
 		return "unknown"
 	}
-}
-
-func hasConflictMarkers(content string) bool {
-	return strings.Contains(content, "<<<<<<<") &&
-		strings.Contains(content, "=======") &&
-		strings.Contains(content, ">>>>>>>")
 }
 
 func hashContent(content []byte) string {

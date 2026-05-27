@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	gogit "github.com/go-git/go-git/v5"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
 )
 
@@ -49,20 +49,10 @@ func ConflictedFiles(r *Repository) ([]string, error) {
 
 // validateRepoPath ensures a relative path does not escape the repository root.
 func validateRepoPath(repoRoot, relativePath string) error {
-	absRoot, err := filepath.Abs(repoRoot)
+	_, err := securejoin.SecureJoin(repoRoot, relativePath)
 	if err != nil {
-		return fmt.Errorf("resolving repo root: %w", err)
+		return fmt.Errorf("path traversal rejected: %w", err)
 	}
-
-	absFile, err := filepath.Abs(filepath.Join(repoRoot, relativePath))
-	if err != nil {
-		return fmt.Errorf("resolving file path: %w", err)
-	}
-
-	if !strings.HasPrefix(absFile, absRoot+string(filepath.Separator)) && absFile != absRoot {
-		return fmt.Errorf("path escapes repository root")
-	}
-
 	return nil
 }
 
@@ -82,15 +72,6 @@ func IsConflicted(r *Repository, filePath string) (bool, error) {
 	}
 
 	return false, nil
-}
-
-func isStatusConflicted(fileStatus *gogit.FileStatus) bool {
-	if fileStatus == nil {
-		return false
-	}
-
-	return fileStatus.Staging == gogit.UpdatedButUnmerged ||
-		fileStatus.Worktree == gogit.UpdatedButUnmerged
 }
 
 func MarkResolved(r *Repository, filePath string) error {
@@ -158,7 +139,9 @@ func walkRoot(root *os.Root, relPath string, results *[]string) error {
 		if relPath == "." {
 			nextPath = d.Name()
 		}
-		_ = walkRoot(root, nextPath, results)
+		if err := walkRoot(root, nextPath, results); err != nil {
+			return err
+		}
 	}
 
 	return nil
