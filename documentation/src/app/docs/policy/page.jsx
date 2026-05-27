@@ -2,6 +2,8 @@
 
 import React from 'react';
 import DocsShell from '@/components/DocsShell';
+import TerminalWindow from '@/components/TerminalWindow';
+import { ShieldAlert, ShieldCheck, Shield, Zap, ArrowRight } from 'lucide-react';
 
 export default function PolicyProfiles() {
   return (
@@ -9,31 +11,37 @@ export default function PolicyProfiles() {
       title="Policy Profiles" 
       subtitle="Configure risk posture and automation behavior per path and team."
     >
-      <div className="space-y-12">
+      <div className="space-y-16">
         <section>
-          <h2 className="text-xl font-semibold text-white mb-4">Risk Management</h2>
-          <p className="text-gray-400 leading-relaxed mb-6">
-            Not all code carries the same risk. A conflict in a documentation file is trivial, while a conflict in a payment processing handler is critical. Policy profiles allow you to tune <code className="text-gray-300">gitresolve</code>&apos;s automation threshold based on the file&apos;s importance.
-          </p>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Risk Management</h2>
+            <p className="text-[#a1a1aa] leading-relaxed text-[17px] font-medium max-w-4xl">
+              Not all code carries the same risk. A conflict in a documentation file is trivial, while a conflict in a payment processing handler is critical. Policy profiles allow you to tune gitresolve's automation threshold based on the file's importance.
+            </p>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ProfileCard 
               name="strict" 
+              icon={ShieldAlert}
               color="text-red-500"
               desc="Maximum escalation. Blocks 'Both' strategy for all source files. Forced manual review for sensitive paths." 
             />
             <ProfileCard 
               name="balanced" 
+              icon={ShieldCheck}
               color="text-blue-500"
               desc="Default posture. Auto-resolves trivial blocks but escalates on semantic structural changes." 
             />
             <ProfileCard 
               name="aggressive" 
+              icon={Zap}
               color="text-green-500"
               desc="Maximum automation. Suitable for generated code, logs, or documentation where safety gates can be relaxed." 
             />
             <ProfileCard 
               name="auto" 
+              icon={Shield}
               color="text-purple-500"
               desc="Dynamic resolution. Matches files against .gitresolve/policy.json for path-specific overrides." 
             />
@@ -41,17 +49,15 @@ export default function PolicyProfiles() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-white mb-4">Configuration: policy.json</h2>
-          <p className="text-gray-400 mb-6">
-            Create a <code className="text-white">.gitresolve/policy.json</code> at your repository root to define fine-grained rules.
-          </p>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Configuration: policy.json</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">
+              Create a <code>.gitresolve/policy.json</code> at your repository root to define fine-grained rules.
+            </p>
+          </div>
           
-          <div className="code-window border border-[#222]">
-            <div className="code-header border-b border-[#111] px-4 py-2 flex gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#333]" /><div className="w-1.5 h-1.5 rounded-full bg-[#333]" /><div className="w-1.5 h-1.5 rounded-full bg-[#333]" />
-              <span className="text-[10px] text-gray-600 font-mono ml-2">.gitresolve/policy.json</span>
-            </div>
-            <div className="code-content bg-black p-5 font-mono text-[13px] leading-relaxed text-blue-300">
+          <TerminalWindow title=".gitresolve/policy.json">
+            <div className="text-blue-500 font-mono text-[13px] whitespace-pre overflow-x-auto leading-relaxed">
 {`{
   "default": "balanced",
   "path_profiles": {
@@ -66,20 +72,26 @@ export default function PolicyProfiles() {
   }
 }`}
             </div>
-          </div>
+          </TerminalWindow>
         </section>
 
-        <section>
-          <h2 className="text-xl font-semibold text-white mb-4">Resolution Logic</h2>
-          <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-[#0a0a0a] border border-[#222]">
-               <h4 className="text-white font-medium text-sm mb-1">Path Overrides</h4>
-               <p className="text-xs text-gray-500">The engine uses a <strong>longest-path match</strong>. If a file is in <code className="text-gray-400">internal/auth/utils.go</code>, it receives the &quot;strict&quot; profile even if the rest of <code className="text-gray-400">internal/</code> is balanced.</p>
+        <section className="pb-16">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Resolution Logic</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">How the engine determines the active profile.</p>
+          </div>
+          <div className="space-y-6">
+            <div className="p-6 rounded-xl bg-black border border-white/[0.05] hover-card">
+               <h4 className="text-white font-bold text-lg mb-3 tracking-tight">Path Overrides</h4>
+               <p className="text-[15px] text-[#a1a1aa] font-medium leading-relaxed max-w-4xl">The engine uses a <strong>longest-path match</strong>. If a file is in <code>internal/auth/utils.go</code>, it receives the "strict" profile even if the rest of <code>internal/</code> is balanced.</p>
             </div>
-            <div className="p-4 rounded-lg bg-[#0a0a0a] border border-[#222]">
-               <h4 className="text-white font-medium text-sm mb-1">Previewing Policy</h4>
-               <p className="text-xs text-gray-500">You can preview which profile is active for a file by running:</p>
-               <code className="text-[11px] text-blue-400 mt-2 block bg-black border border-[#111] p-2 rounded">gitresolve resolve --policy-profile auto --dry-run path/to/file.go</code>
+            <div className="p-6 rounded-xl bg-black border border-white/[0.05] hover-card">
+               <h4 className="text-white font-bold text-lg mb-3 tracking-tight">Previewing Policy</h4>
+               <p className="text-[15px] text-[#a1a1aa] font-medium leading-relaxed mb-6 max-w-4xl">You can preview which profile is active for a file by running:</p>
+               <div className="px-4 py-2 rounded-lg bg-[#050505] border border-white/[0.1] font-mono text-[13px] text-blue-500 inline-flex items-center gap-3">
+                 <span className="text-white opacity-30 font-bold">$</span>
+                 gitresolve resolve --policy-profile auto --dry-run path/to/file.go
+               </div>
             </div>
           </div>
         </section>
@@ -88,14 +100,22 @@ export default function PolicyProfiles() {
   );
 }
 
-function ProfileCard({ name, color, desc }) {
+function ProfileCard({ name, color, desc, icon: Icon }) {
+  const bgClass = color.replace('text', 'bg');
   return (
-    <div className="p-6 rounded-xl bg-[#080808] border border-[#1a1a1a] flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${color.replace('text', 'bg')}`} />
-        <h3 className={`font-mono text-sm font-bold tracking-widest ${color}`}>{name.toUpperCase()}</h3>
+    <div className="p-6 rounded-xl bg-black border border-white/[0.05] hover-card flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div className={`w-10 h-10 rounded-lg ${bgClass}/10 flex items-center justify-center shadow-lg`}>
+          <Icon className={`w-5 h-5 ${color}`} />
+        </div>
+        <span className={`text-[10px] font-extrabold uppercase tracking-[0.2em] px-2 py-1 rounded-md border ${color} ${color.replace('text', 'border')}/20 bg-black/50`}>
+          Profile
+        </span>
       </div>
-      <p className="text-xs text-gray-500 font-medium leading-relaxed">{desc}</p>
+      <div>
+        <h3 className={`text-xl font-extrabold text-white mb-2 tracking-tight uppercase`}>{name}</h3>
+        <p className="text-[14px] text-[#a1a1aa] font-medium leading-relaxed">{desc}</p>
+      </div>
     </div>
   );
 }
