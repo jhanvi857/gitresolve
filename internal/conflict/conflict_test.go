@@ -146,3 +146,28 @@ func TestClassifier_LogicConflict(t *testing.T) {
 		t.Error("logic conflicts shouldn't be auto resolved")
 	}
 }
+
+func TestParser_UnbalancedBraceNoSwallow(t *testing.T) {
+	content := `<<<<<<< OURS
+func test() {
+=======
+func test() { {
+>>>>>>> THEIRS
+some unrelated code
+<<<<<<< OURS
+var x = 1
+=======
+var x = 2
+>>>>>>> THEIRS`
+
+	blocks := ParseFile("test.go", []byte(content))
+	if len(blocks) != 2 {
+		t.Fatalf("expected 2 conflict blocks, got %d. Subsequent conflict block was swallowed!", len(blocks))
+	}
+	if len(blocks[0].TheirsLines) != 2 || blocks[0].TheirsLines[0] != "func test() { {" || blocks[0].TheirsLines[1] != "some unrelated code" {
+		t.Errorf("expected 2 lines in first TheirsLines, got %v", blocks[0].TheirsLines)
+	}
+	if len(blocks[1].OursLines) != 1 || blocks[1].OursLines[0] != "var x = 1" {
+		t.Errorf("expected var x = 1 in second OursLines, got %v", blocks[1].OursLines)
+	}
+}
