@@ -12,6 +12,10 @@ func RepoRoot(repoDir string) (*os.Root, error) {
 	if !IsForceAllowed() {
 		return nil, UnsupportedPlatformErr()
 	}
+	// Even on unsupported platforms, we should ensure the .gitresolve directory exists so the lock/db files can be created.
+	if err := os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0755); err != nil {
+		return nil, fmt.Errorf("RepoRoot(force): failed to create .gitresolve directory: %w", err)
+	}
 	return nil, nil
 }
 

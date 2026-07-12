@@ -13,6 +13,10 @@ import (
 )
 
 func RepoRoot(repoDir string) (*os.Root, error) {
+	// Ensure .gitresolve directory exists in the repository root so lock file and db can be created.
+	if err := os.MkdirAll(filepath.Join(repoDir, ".gitresolve"), 0755); err != nil {
+		return nil, fmt.Errorf("RepoRoot: failed to create .gitresolve directory: %w", err)
+	}
 	root, err := os.OpenRoot(repoDir)
 	if err != nil {
 		return nil, fmt.Errorf("RepoRoot: %w", err)
