@@ -112,6 +112,15 @@ var resolveCmd = &cobra.Command{
 		manualEscalations := 0
 		var failedFiles []string
 
+		var backupsCreated []string
+		defer func() {
+			for _, b := range backupsCreated {
+				if err := safety.RemoveBackup(root, b); err != nil {
+					logger.Debug().Err(err).Str("file", b).Msg("failed to remove backup file")
+				}
+			}
+		}()
+
 		for _, file := range files {
 			if resolveFileName != "" && file != resolveFileName {
 				continue
@@ -169,6 +178,7 @@ var resolveCmd = &cobra.Command{
 					fmt.Printf("Warning: backup failed for %s: %v\n", file, err)
 					continue
 				}
+				backupsCreated = append(backupsCreated, file)
 			}
 
 			fileValidationFailed := false
