@@ -85,12 +85,15 @@ export default function DocsLayout({ children }) {
   const [currentHash, setCurrentHash] = useState("");
 
   useEffect(() => {
-    setCurrentHash(window.location.hash);
     const handleHashChange = () => {
       setCurrentHash(window.location.hash);
     };
+    const timer = setTimeout(handleHashChange, 0);
     window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
   }, [pathname]);
 
   // Lock body scroll when mobile sidebar is open

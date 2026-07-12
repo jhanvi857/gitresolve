@@ -31,7 +31,7 @@ export default function MergeCommand() {
                   <span className="text-blue-500 font-bold">$</span>
                   <span className="text-white font-bold">gitresolve merge</span>
                 </div>
-                <div className="text-[#888] mt-4">Engine Bootup: Initializing gitresolve in directory '.'</div>
+                <div className="text-[#888] mt-4">Engine Bootup: Initializing gitresolve in directory &apos;.&apos;</div>
                 <div className="text-[#888]">Scanning index. Found 2 unmerged conflicts...</div>
                 <div className="text-[#888] pt-2">--- Processing main.go ---</div>
                 <div className="text-green-500 font-bold">✓ Resolution applied automatically to main.go.</div>
