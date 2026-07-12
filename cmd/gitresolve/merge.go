@@ -86,6 +86,15 @@ var mergeCmd = &cobra.Command{
 		fmt.Printf("Scanning index. Found %d unmerged conflicts...\n", len(files))
 		writer := safety.NewWriter(dryRun, root)
 
+		var backupsCreated []string
+		defer func() {
+			for _, b := range backupsCreated {
+				if err := safety.RemoveBackup(root, b); err != nil {
+					logger.Debug().Err(err).Str("file", b).Msg("failed to remove backup file")
+				}
+			}
+		}()
+
 		autoResolved := 0
 		interactiveResolved := 0 // remain 0 for merge command
 		validationFailed := 0
@@ -102,6 +111,7 @@ var mergeCmd = &cobra.Command{
 					fmt.Println("Warning: Could not create backup:", err)
 					continue
 				}
+				backupsCreated = append(backupsCreated, file)
 			}
 
 			f, err := safepath.SafeOpen(root, file)

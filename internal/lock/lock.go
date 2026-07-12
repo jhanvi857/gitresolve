@@ -15,7 +15,13 @@ var ErrLockContention = errors.New("repository is locked by another gitresolve p
 const LockFile = ".gitresolve/repo.lock"
 
 func Acquire(root *os.Root) (*RepoLock, error) {
-	f, err := root.OpenFile(LockFile, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	var f *os.File
+	var err error
+	if root != nil {
+		f, err = root.OpenFile(LockFile, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	} else {
+		f, err = os.OpenFile(LockFile, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	}
 	if err != nil {
 		if os.IsExist(err) {
 			return nil, ErrLockContention

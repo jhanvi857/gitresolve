@@ -50,3 +50,12 @@ func RestoreOriginal(root *os.Root, filePath string) error {
 	}
 	return nil
 }
+
+func RemoveBackup(root *os.Root, filePath string) error {
+	backupPath := filePath + ".gitresolve-orig"
+	err := root.Remove(backupPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("RemoveBackup: %w", err)
+	}
+	return nil
+}
