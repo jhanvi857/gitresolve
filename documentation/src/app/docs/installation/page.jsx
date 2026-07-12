@@ -72,37 +72,6 @@ export default function Installation() {
             </div>
           </TerminalWindow>
         </Step>
-
-        <Step number="5" title="Quick Start Commands">
-          <p>
-            Try some basic commands to see gitresolve in action.
-          </p>
-          <TerminalWindow title="quick start">
-            <div className="space-y-4">
-              <div>
-                <div className="text-[#555] mb-1"># View current conflicts with block-level severity</div>
-                <div className="flex gap-3">
-                  <span className="text-blue-500 font-bold">$</span>
-                  <span className="text-white font-bold">gitresolve status</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-[#555] mb-1"># Resolve interactively</div>
-                <div className="flex gap-3">
-                  <span className="text-blue-500 font-bold">$</span>
-                  <span className="text-white font-bold">gitresolve resolve</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-[#555] mb-1"># Predict conflicts before a merge</div>
-                <div className="flex gap-3">
-                  <span className="text-blue-500 font-bold">$</span>
-                  <span className="text-white font-bold">gitresolve scan --target main</span>
-                </div>
-              </div>
-            </div>
-          </TerminalWindow>
-        </Step>
       </div>
 
       <div className="mt-16 p-8 rounded-xl border border-white/[0.05] bg-black hover-card">

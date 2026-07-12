@@ -19,7 +19,7 @@ const FeatureCard = ({ title, description, icon: Icon, index }) => (
       <Icon className="w-5 h-5 text-white group-hover:text-blue-500 transition-colors" />
     </div>
     <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{title}</h3>
-    <p className="text-[#a1a1aa] text-[15px] leading-relaxed">
+    <p className="text-brand-secondary text-[15px] leading-relaxed">
       {description}
     </p>
   </motion.div>
@@ -34,10 +34,10 @@ export default function Home() {
       {/* Radial Gradient Overlay */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(0,112,243,0.05),transparent_70%)] pointer-events-none z-0" />
 
-      <nav className="sticky top-0 z-50 border-b border-white/[0.05] bg-black/80 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="p-1.5 rounded-lg bg-black border border-white/[0.1] group-hover:border-blue-500 transition-all">
+            <div className="p-1.5 rounded-lg bg-black border border-white/10 group-hover:border-blue-500 transition-all">
               <Image src="/logo.png" alt="logo" width={20} height={20} className="opacity-90" />
             </div>
             <span className="font-extrabold tracking-tighter text-xl">gitresolve</span>
@@ -63,7 +63,7 @@ export default function Home() {
               transition={{ duration: 0.6 }}
               className="text-left"
             >
-              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-[#111] border border-white/[0.05] mb-8">
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-[#111] border border-white/5 mb-8">
                 <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(0,112,243,0.8)]" />
                 <span className="text-[12px] font-bold text-[#888] tracking-wide">
                   Deterministic Conflict Resolution <span className="mx-2 text-[#333]">|</span> v1.4.0 Stable
@@ -75,15 +75,15 @@ export default function Home() {
                 <span className="text-white opacity-90">Conflict Engine.</span>
               </h1>
               
-              <p className="text-[#a1a1aa] text-lg md:text-xl max-w-xl mb-10 leading-relaxed font-medium">
+              <p className="text-brand-secondary text-lg md:text-xl max-w-xl mb-10 leading-relaxed font-medium">
                 GitResolve is a privacy-first, purely offline engine using AST structural analysis to solve Git conflicts with mathematical precision and zero data leakage.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                <Link href="/docs/architecture" className="w-full sm:w-auto bg-white text-black px-8 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all text-[15px]">
+                <Link href="/docs/architecture" className="w-full sm:w-auto bg-white text-black px-8 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all text-[15px] text-center">
                   Read Architecture Docs
                 </Link>
-                <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="w-full sm:w-auto bg-black text-white px-8 py-3.5 rounded-lg font-bold border border-white/[0.1] hover:bg-[#111] transition-all flex items-center justify-center gap-3 text-[15px]">
+                <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="w-full sm:w-auto bg-black text-white px-8 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-[#111] transition-all flex items-center justify-center gap-3 text-[15px]">
                   View Source Code
                 </a>
               </div>
@@ -126,7 +126,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto">
             <div className="mb-16">
               <h2 className="text-3xl font-extrabold tracking-tight mb-4">Built for scale.</h2>
-              <p className="text-[#a1a1aa] text-lg font-medium">Every feature designed for production reliability.</p>
+              <p className="text-brand-secondary text-lg font-medium">Every feature designed for production reliability.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <FeatureCard
@@ -152,12 +152,12 @@ export default function Home() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-32 px-8 border-t border-white/[0.05]">
+        <section className="py-32 px-8 border-t border-white/5">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-8">
               Ready to automate?
             </h2>
-            <p className="text-[#a1a1aa] text-lg md:text-xl mb-12 font-medium">
+            <p className="text-brand-secondary text-lg md:text-xl mb-12 font-medium">
               Join teams resolving conflicts with mathematical certainty. <br className="hidden md:block" />
               Purely offline. Completely deterministic.
             </p>
@@ -165,7 +165,7 @@ export default function Home() {
               <Link href="/docs/installation" className="w-full sm:w-auto bg-white text-black px-10 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all">
                 Read Documentation
               </Link>
-              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="w-full sm:w-auto px-10 py-3.5 rounded-lg font-bold border border-white/[0.1] hover:bg-white/5 transition-all">
+              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="w-full sm:w-auto px-10 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-white/5 transition-all">
                 Star on GitHub
               </a>
             </div>
