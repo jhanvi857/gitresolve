@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -87,8 +88,16 @@ func ValidatePath(repoRoot, filePath string) error {
 	info, statErr := os.Lstat(absFile)
 	if statErr == nil && info.Mode()&os.ModeSymlink != 0 {
 		realFile, err := filepath.EvalSymlinks(absFile)
-		if err == nil && !strings.HasPrefix(realFile, realRoot+string(filepath.Separator)) {
-			return fmt.Errorf("symlink %q points outside repository", filePath)
+		if err == nil {
+			rf := realFile
+			rr := realRoot + string(filepath.Separator)
+			if runtime.GOOS == "windows" {
+				rf = strings.ToLower(rf)
+				rr = strings.ToLower(rr)
+			}
+			if !strings.HasPrefix(rf, rr) {
+				return fmt.Errorf("symlink %q points outside repository", filePath)
+			}
 		}
 	}
 
