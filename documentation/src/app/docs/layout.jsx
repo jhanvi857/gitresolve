@@ -4,28 +4,30 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { ChevronRight, Book, Shield, Cpu, Activity, Zap, BarChart3, Menu, X, GitMerge } from "lucide-react";
+import { ChevronRight, Book, Shield, Cpu, Activity, Zap, BarChart3, Menu, X, GitMerge, History, RotateCcw, Database } from "lucide-react";
 import Footer from "@/components/Footer";
 
 const navItems = [
   { group: "Getting Started", items: [
     { name: "Installation", path: "/docs/installation", icon: Zap },
     { name: "Quick Start", path: "/docs/quick-start", icon: Activity },
+    { name: "History Escalation", path: "/docs/history-escalation", icon: Shield, badge: "NEW" },
   ]},
   { group: "CLI Reference", items: [
-    { name: "init", path: "/docs/commands/init", icon: Zap },
+    { name: "resolve", path: "/docs/commands/resolve", icon: Cpu },
     { name: "merge", path: "/docs/commands/merge", icon: GitMerge },
     { name: "scan", path: "/docs/commands/scan", icon: Shield },
     { name: "status", path: "/docs/commands/status", icon: Activity },
-    { name: "resolve", path: "/docs/commands/resolve", icon: Cpu },
-    { name: "config", path: "/docs/commands/config", icon: Book },
+    { name: "blame", path: "/docs/commands/blame", icon: History },
+    { name: "policy check", path: "/docs/commands/policy", icon: Shield },
     { name: "stats", path: "/docs/commands/stats", icon: BarChart3 },
-    { name: "audit", path: "/docs/commands/audit", icon: Shield },
+    { name: "undo", path: "/docs/commands/undo", icon: RotateCcw },
+    { name: "db repair", path: "/docs/commands/db", icon: Database },
   ]},
   { group: "Core Engine", items: [
     { name: "Architecture", path: "/docs/architecture", icon: Book },
     { name: "Security", path: "/docs/security", icon: Shield },
-    { name: "Merge Logic & Flow", path: "/docs/merge-flow", icon: Activity },
+    { name: "Merge Logic & Flow", path: "/docs/merge-flow", icon: GitMerge },
     { name: "Policy Profiles", path: "/docs/policy", icon: Cpu },
   ]},
 ];
@@ -68,7 +70,12 @@ function SidebarContent({ pathname, currentHash, onItemClick }) {
                   }`}
                 >
                   <Icon className={`w-4 h-4 transition-colors ${isActive ? "text-blue-500" : "text-[#333] group-hover:text-[#666]"}`} />
-                  {item.name}
+                  <span>{item.name}</span>
+                  {item.badge && (
+                    <span className="ml-auto px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.2)]">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -144,16 +151,17 @@ export default function DocsLayout({ children }) {
             </button>
             
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="p-1.5 rounded-lg bg-black border border-white/[0.1] group-hover:border-blue-500 transition-all duration-300">
-                <Image src="/logo.png" alt="logo" width={22} height={22} className="opacity-90" />
+              <div className="w-8 h-8 rounded-lg bg-[#111] border border-white/10 group-hover:border-blue-500/50 transition-all flex items-center justify-center">
+                <GitMerge className="w-4 h-4 text-blue-400" />
               </div>
               <span className="font-extrabold tracking-tighter text-xl">gitresolve</span>
             </Link>
             
             <div className="hidden md:flex items-center gap-8 text-[14px] font-bold">
               <Link href="/docs/installation" className={`pb-1 border-b-2 transition-all ${pathname.startsWith("/docs") ? "text-white border-blue-500" : "text-[#555] border-transparent hover:text-white"}`}>Docs</Link>
+              <Link href="/docs/history-escalation" className={`transition-all ${pathname === "/docs/history-escalation" ? "text-white" : "text-[#555] hover:text-white"}`}>History Escalation</Link>
               <Link href="/docs/architecture" className={`transition-all ${pathname === "/docs/architecture" ? "text-white" : "text-[#555] hover:text-white"}`}>Architecture</Link>
-              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="text-[#555] hover:text-white transition-colors">Github</a>
+              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="text-[#555] hover:text-white transition-colors">GitHub</a>
             </div>
           </div>
           
@@ -182,8 +190,8 @@ export default function DocsLayout({ children }) {
       >
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/[0.05]">
           <Link href="/" className="flex items-center gap-3" onClick={() => setIsSidebarOpen(false)}>
-            <div className="p-1.5 rounded-lg bg-black border border-white/[0.1]">
-              <Image src="/logo.png" alt="logo" width={20} height={20} className="opacity-90" />
+            <div className="w-8 h-8 rounded-lg bg-[#111] border border-white/10 flex items-center justify-center">
+              <GitMerge className="w-4 h-4 text-blue-400" />
             </div>
             <span className="font-extrabold tracking-tighter text-lg">gitresolve</span>
           </Link>

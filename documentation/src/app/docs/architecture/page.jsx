@@ -1,9 +1,9 @@
 "use client";
 
 import React from 'react';
-import Image from 'next/image';
 import DocsShell from '@/components/DocsShell';
-import { Cpu, Shield, Activity, Zap, ArrowRight } from 'lucide-react';
+import ArchitectureDiagram from '@/components/ArchitectureDiagram';
+import { Cpu, Shield, Activity, Zap } from 'lucide-react';
 
 export default function Architecture() {
   return (
@@ -84,35 +84,22 @@ export default function Architecture() {
         <section>
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Engine Deep Dive</h2>
-            <p className="text-[#a1a1aa] text-[16px] font-medium">Visual breakdown of the deterministic resolution engine.</p>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">Visual breakdown of the deterministic resolution and history escalation engine.</p>
           </div>
-          <div className="p-1 rounded-2xl bg-white/[0.05] border border-white/[0.1] overflow-hidden shadow-2xl">
-            <div className="bg-black rounded-xl overflow-hidden">
-               <Image 
-                 src="/gitresolve_architecture_diagram.png" 
-                 alt="Gitresolve System Architecture" 
-                 width={1200}
-                 height={800}
-                 className="w-full h-auto opacity-90"
-               />
-            </div>
-          </div>
-          <p className="mt-6 text-[11px] text-[#333] font-bold uppercase tracking-[0.2em] text-center">
-            Marker Identification → Semantic Analysis → Syntax Validation
+          <ArchitectureDiagram />
+          <p className="mt-6 text-[11px] text-[#555] font-bold uppercase tracking-[0.2em] text-center font-mono">
+            Working Tree → Pre-Flight Divergence → AST Index → History Risk Scoring → Policy & Syntax Gates → Outcome
           </p>
         </section>
 
         <section className="pb-16">
-           <div className="p-8 rounded-2xl bg-blue-500/5 border border-blue-500/10 relative overflow-hidden group hover-card">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full -mr-48 -mt-48 transition-opacity duration-500 group-hover:opacity-100 opacity-50" />
-              <h3 className="text-xl font-bold text-white mb-4 relative z-10">Structured Data Engine</h3>
-              <p className="text-[#a1a1aa] leading-relaxed relative z-10 text-[17px] font-medium max-w-4xl">
-                For JSON, YAML, and TOML, gitresolve bypasses line-based text merging entirely. It parses both sides into memory, performs a 3-way recursive object merge including <strong>conservative array unioning</strong>, and re-serializes the result. This prevents common errors where merging two objects results in an invalid JSON comma or duplicated keys.
-              </p>
-              <div className="mt-8 flex items-center gap-2 text-blue-500 font-bold text-[13px] uppercase tracking-widest cursor-pointer group-hover:gap-4 transition-all relative z-10">
-                Read about structured merging <ArrowRight className="w-4 h-4" />
-              </div>
-           </div>
+          <div className="p-8 rounded-2xl bg-blue-500/5 border border-blue-500/10 relative overflow-hidden group hover-card">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full -mr-48 -mt-48 transition-opacity duration-500 group-hover:opacity-100 opacity-50" />
+            <h3 className="text-xl font-bold text-white mb-4 relative z-10">Structured Data Engine</h3>
+            <p className="text-[#a1a1aa] leading-relaxed relative z-10 text-[17px] font-medium max-w-4xl">
+              For JSON, YAML, and TOML, gitresolve bypasses line-based text merging entirely. It parses both sides into memory, performs a 3-way recursive object merge including <strong>conservative array unioning</strong>, and re-serializes the result. This prevents common errors where merging two objects results in an invalid JSON comma or duplicated keys.
+            </p>
+          </div>
         </section>
       </div>
     </DocsShell>

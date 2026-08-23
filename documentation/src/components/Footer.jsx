@@ -2,9 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { GitMerge } from 'lucide-react';
 
-// Inline SVGs for social icons to avoid lucide version mismatches
 const GithubIcon = ({ className }) => (
   <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
@@ -17,16 +16,6 @@ const TwitterIcon = ({ className }) => (
   </svg>
 );
 
-const DiscordIcon = ({ className }) => (
-  <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="9" cy="12" r="1"></circle>
-    <circle cx="15" cy="12" r="1"></circle>
-    <path d="M7.5 7.1A9 9 0 0 0 2 12a10 10 0 0 0 2 6l1.5-1.5a10 10 0 0 1 1-6.5M16.5 7.1A9 9 0 0 1 22 12a10 10 0 0 1-2 6l-1.5-1.5a10 10 0 0 0-1-6.5"></path>
-    <path d="M7.5 7.1C9 5.5 11 5 12 5s3 .5 4.5 2.1"></path>
-    <path d="M7.5 18.5c1.5 1.5 3 2 4.5 2s3-.5 4.5-2.1"></path>
-  </svg>
-);
-
 export default function Footer() {
   return (
     <footer className="border-t border-white/[0.05] bg-black py-16 px-8 relative overflow-hidden">
@@ -36,51 +25,52 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           <div className="space-y-6">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="p-1.5 rounded-lg bg-black border border-white/[0.1] group-hover:border-blue-500 transition-all">
-                <Image src="/logo.png" alt="logo" width={20} height={20} className="opacity-90" />
+              <div className="w-8 h-8 rounded-lg bg-black border border-white/[0.1] group-hover:border-blue-500 transition-all flex items-center justify-center">
+                <GitMerge className="w-4 h-4 text-blue-400" />
               </div>
               <span className="font-extrabold tracking-tighter text-xl text-white">gitresolve</span>
             </Link>
-            <p className="text-[#555] text-[14px] leading-relaxed max-w-xs font-medium">
+            <p className="text-[#888] text-[14px] leading-relaxed max-w-xs font-medium">
               A high-precision, purely offline deterministic conflict resolution engine for modern engineering teams.
             </p>
             <div className="flex gap-4">
               <SocialLink href="https://github.com/jhanvi857/gitresolve" icon={GithubIcon} />
-              <SocialLink href="#" icon={TwitterIcon} />
-              <SocialLink href="#" icon={DiscordIcon} />
+              <SocialLink href="https://twitter.com" icon={TwitterIcon} />
             </div>
           </div>
 
-          <FooterGroup title="Platform">
-            <FooterLink href="/docs/commands/init">init</FooterLink>
-            <FooterLink href="/docs/commands/scan">scan</FooterLink>
+          <FooterGroup title="Commands">
             <FooterLink href="/docs/commands/resolve">resolve</FooterLink>
+            <FooterLink href="/docs/commands/merge">merge</FooterLink>
+            <FooterLink href="/docs/commands/scan">scan</FooterLink>
             <FooterLink href="/docs/commands/status">status</FooterLink>
+            <FooterLink href="/docs/commands/blame">blame</FooterLink>
+          </FooterGroup>
+
+          <FooterGroup title="Core Engine">
+            <FooterLink href="/docs/history-escalation">History Escalation</FooterLink>
+            <FooterLink href="/docs/architecture">Architecture</FooterLink>
+            <FooterLink href="/docs/security">Security</FooterLink>
+            <FooterLink href="/docs/merge-flow">Merge Flow</FooterLink>
+            <FooterLink href="/docs/policy">Policy Profiles</FooterLink>
           </FooterGroup>
 
           <FooterGroup title="Resources">
             <FooterLink href="/docs/installation">Installation</FooterLink>
-            <FooterLink href="/docs/architecture">Architecture</FooterLink>
-            <FooterLink href="/docs/security">Security</FooterLink>
-            <FooterLink href="/docs/policy">Policy Profiles</FooterLink>
-          </FooterGroup>
-
-          <FooterGroup title="Community">
-            <FooterLink href="https://github.com/jhanvi857/gitresolve/issues">GitHub Issues</FooterLink>
-            <FooterLink href="/docs/security#report">Report Vulnerability</FooterLink>
-            <FooterLink href="#">Discord Server</FooterLink>
-            <FooterLink href="#" external>Twitter / X</FooterLink>
+            <FooterLink href="/docs/quick-start">Quick Start</FooterLink>
+            <FooterLink href="https://github.com/jhanvi857/gitresolve" external>GitHub Repository</FooterLink>
+            <FooterLink href="https://github.com/jhanvi857/gitresolve/issues" external>Issue Tracker</FooterLink>
           </FooterGroup>
         </div>
 
         <div className="pt-8 border-t border-white/[0.05] flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-[#333] text-[11px] font-extrabold uppercase tracking-[0.2em]">
+          <p className="text-[#444] text-[11px] font-extrabold uppercase tracking-[0.2em]">
             © 2026 GitResolve Engine. Built for Determinism.
           </p>
-          <div className="flex gap-8 text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#333]">
-             <Link href="#" className="hover:text-[#555] transition-colors">Privacy Policy</Link>
-             <Link href="#" className="hover:text-[#555] transition-colors">Terms of Service</Link>
-             <Link href="#" className="hover:text-[#555] transition-colors">Security.md</Link>
+          <div className="flex gap-8 text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#444]">
+             <Link href="/docs/security" className="hover:text-[#888] transition-colors">Security Model</Link>
+             <Link href="/docs/policy" className="hover:text-[#888] transition-colors">Policy Guarantees</Link>
+             <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="hover:text-[#888] transition-colors">Open Source</a>
           </div>
         </div>
       </div>
@@ -108,7 +98,7 @@ function FooterLink({ href, children, external }) {
     <Component 
       href={href} 
       {...props}
-      className="text-[#555] hover:text-white transition-colors text-[14px] font-bold flex items-center gap-2 group"
+      className="text-[#888] hover:text-white transition-colors text-[14px] font-bold flex items-center gap-2 group"
     >
       {children}
       {isExternal && (
@@ -127,7 +117,8 @@ function SocialLink({ href, icon: Icon }) {
     <a 
       href={href} 
       target="_blank" 
-      className="p-2 rounded-lg bg-black border border-white/[0.05] text-[#333] hover:text-white hover:border-white/10 transition-all"
+      rel="noreferrer"
+      className="p-2 rounded-lg bg-black border border-white/[0.05] text-[#555] hover:text-white hover:border-white/10 transition-all"
     >
       <Icon className="w-4 h-4" />
     </a>

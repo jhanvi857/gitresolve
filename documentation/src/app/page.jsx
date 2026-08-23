@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Terminal, Shield, Cpu, Activity, Zap, ChevronRight } from "lucide-react";
+import { Terminal, Shield, Cpu, Activity, Zap, ChevronRight, GitMerge } from "lucide-react";
 import TerminalWindow from "@/components/TerminalWindow";
 import Footer from "@/components/Footer";
 
@@ -37,15 +37,19 @@ export default function Home() {
       <nav className="sticky top-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="p-1.5 rounded-lg bg-black border border-white/10 group-hover:border-blue-500 transition-all">
-              <Image src="/logo.png" alt="logo" width={20} height={20} className="opacity-90" />
+            <div className="w-8 h-8 rounded-lg bg-black border border-white/10 group-hover:border-blue-500 transition-all flex items-center justify-center">
+              <GitMerge className="w-4 h-4 text-blue-400" />
             </div>
             <span className="font-extrabold tracking-tighter text-xl">gitresolve</span>
           </Link>
           <div className="hidden md:flex items-center gap-10 text-[14px] font-bold text-[#555]">
             <Link href="/docs/installation" className="hover:text-white transition-colors">Docs</Link>
+            <Link href="/docs/history-escalation" className="hover:text-white transition-colors flex items-center gap-1.5">
+              <span>History Escalation</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">NEW</span>
+            </Link>
             <Link href="/docs/architecture" className="hover:text-white transition-colors">Architecture</Link>
-            <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="hover:text-white transition-colors">GitHub</a>
+            <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">GitHub</a>
           </div>
           <Link href="/docs/installation" className="bg-white text-black px-6 py-2 rounded-lg text-[14px] font-bold hover:bg-[#e1e1e1] transition-all">
             Read Docs
@@ -80,10 +84,10 @@ export default function Home() {
               </p>
               
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                <Link href="/docs/architecture" className="w-full sm:w-auto bg-white text-black px-8 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all text-[15px] text-center">
+                <Link href="/docs/installation" className="w-full sm:w-auto bg-white text-black px-8 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all text-[15px] text-center">
                   Read Architecture Docs
                 </Link>
-                <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="w-full sm:w-auto bg-black text-white px-8 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-[#111] transition-all flex items-center justify-center gap-3 text-[15px]">
+                <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="w-full sm:w-auto bg-black text-white px-8 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-[#111] transition-all flex items-center justify-center gap-3 text-[15px]">
                   View Source Code
                 </a>
               </div>
@@ -128,7 +132,7 @@ export default function Home() {
               <h2 className="text-3xl font-extrabold tracking-tight mb-4">Built for scale.</h2>
               <p className="text-brand-secondary text-lg font-medium">Every feature designed for production reliability.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <FeatureCard
                 index={0}
                 title="AST Classification"
@@ -137,12 +141,18 @@ export default function Home() {
               />
               <FeatureCard
                 index={1}
+                title="History-Aware Risk"
+                icon={Activity}
+                description="Deterministic structural risk scoring. Mines Git history for blast radius, missing coupled files, and stale divergence."
+              />
+              <FeatureCard
+                index={2}
                 title="CWE-22 Hardened"
                 icon={Shield}
                 description="Mandatory os.Root sandboxing. Every file operation is cryptographically verified within repository boundaries."
               />
               <FeatureCard
-                index={2}
+                index={3}
                 title="Deep Merging"
                 icon={Terminal}
                 description="Recursive map merges for JSON, YAML, and TOML. Handle complex configuration conflicts with native parsers."
@@ -165,7 +175,7 @@ export default function Home() {
               <Link href="/docs/installation" className="w-full sm:w-auto bg-white text-black px-10 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all">
                 Read Documentation
               </Link>
-              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" className="w-full sm:w-auto px-10 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-white/5 transition-all">
+              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="w-full sm:w-auto px-10 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-white/5 transition-all">
                 Star on GitHub
               </a>
             </div>

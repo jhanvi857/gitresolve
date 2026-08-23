@@ -3,7 +3,7 @@
 import React from 'react';
 import DocsShell from '@/components/DocsShell';
 import TerminalWindow from '@/components/TerminalWindow';
-import { Activity, BarChart3, ShieldCheck, Zap } from 'lucide-react';
+import { Activity, BarChart3 } from 'lucide-react';
 
 export default function StatsCommand() {
   return (
@@ -21,6 +21,13 @@ export default function StatsCommand() {
           </div>
 
           <div className="docs-prose">
+            <TerminalWindow title="bash">
+              <div className="flex gap-3 text-[13px] font-mono">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">gitresolve stats</span>
+              </div>
+            </TerminalWindow>
+
             <p className="text-[#a1a1aa] leading-relaxed text-[17px] font-medium max-w-4xl">
               Every decision made by gitresolve is persisted to a local SQLite database at <code>.gitresolve/audit.db</code>. This gives you a permanent audit trail of how code evolved during merges.
             </p>
@@ -48,21 +55,32 @@ export default function StatsCommand() {
             </p>
           </div>
           
-          <TerminalWindow title="gitresolve stats --json">
-            <div className="text-blue-500 font-mono text-[13px] whitespace-pre overflow-x-auto leading-relaxed">
+          <TerminalWindow title="bash">
+            <div className="flex gap-3 text-[13px] font-mono mb-3">
+              <span className="text-blue-500 font-bold">$</span>
+              <span className="text-white font-bold">gitresolve stats --json</span>
+            </div>
+            <div className="text-blue-400 font-mono text-[13px] whitespace-pre overflow-x-auto leading-relaxed border-t border-white/[0.06] pt-3">
 {`{
   "total_decisions": 47,
   "auto_resolved": 31,
   "escalated_to_manual": 16,
   "escalation_rate": 0.34,
   "top_escalation_reasons": [
-    { "reason": "semantic.field_type_conflict", "count": 9 },
-    { "reason": "validation.go_syntax_failed", "count": 4 },
-    { "reason": "parser.malformed_marker", "count": 3 }
+    { "reason": "semantic.high_blast_radius", "count": 9 },
+    { "reason": "semantic.missing_coupled_file", "count": 4 },
+    { "reason": "strategy.stale_branch_divergence", "count": 3 }
   ]
 }`}
             </div>
           </TerminalWindow>
+
+          <h3 className="text-lg font-bold text-white mt-8 mb-4">Command Options</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ReasonItem namespace="--operation <op>" desc="Filter statistics by operation type: all, resolve, or merge (default: all)." />
+            <ReasonItem namespace="--json" desc="Emit metrics and top reason codes formatted as a JSON payload." />
+            <ReasonItem namespace="--top <N>" desc="Number of top escalation reason codes to display (default: 8)." />
+          </div>
         </section>
 
         <section>

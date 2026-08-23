@@ -21,21 +21,24 @@ export default function MergeCommand() {
           </div>
           
           <div className="docs-prose">
+            <TerminalWindow title="bash">
+              <div className="flex gap-3 text-[13px] font-mono">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">gitresolve merge</span>
+              </div>
+            </TerminalWindow>
+
             <p className="text-[17px]">
               The <code>merge</code> command processes files containing Git merge conflict markers. It parses the blocks, runs language-specific AST validation, checks policy boundaries, and auto-applies safe resolutions. Complex conflicts are safely escalated for manual inspection.
             </p>
             
-            <TerminalWindow title="bash">
-              <div className="space-y-1 text-[13px]">
-                <div className="flex gap-3">
-                  <span className="text-blue-500 font-bold">$</span>
-                  <span className="text-white font-bold">gitresolve merge</span>
-                </div>
-                <div className="text-[#888] mt-4">Engine Bootup: Initializing gitresolve in directory &apos;.&apos;</div>
+            <TerminalWindow title="output">
+              <div className="space-y-1 text-[13px] font-mono">
+                <div className="text-[#888]">Engine Bootup: Initializing gitresolve in directory &apos;.&apos;</div>
                 <div className="text-[#888]">Scanning index. Found 2 unmerged conflicts...</div>
                 <div className="text-[#888] pt-2">--- Processing main.go ---</div>
-                <div className="text-green-500 font-bold">✓ Resolution applied automatically to main.go.</div>
-                <div className="text-green-500 font-bold pt-4">Merge complete. auto_resolved: 2, manual_escalations: 0.</div>
+                <div className="text-emerald-400 font-bold">✓ Resolution applied automatically to main.go.</div>
+                <div className="text-emerald-400 font-bold pt-4">Merge complete. auto_resolved: 2, manual_escalations: 0.</div>
               </div>
             </TerminalWindow>
 

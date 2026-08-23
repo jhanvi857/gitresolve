@@ -3,25 +3,18 @@ import "./globals.css";
 
 const inter = Inter({ 
   subsets: ["latin"],
-  variable: '--font-inter',
+  display: 'swap',
 });
 
 export const metadata = {
-  title: "gitresolve",
-  description: "A secure, offline deterministic Git conflict resolution engine.",
-  icons: {
-    icon: "/logo.png",
-  },
+  title: "gitresolve – Deterministic Git Conflict Resolution",
+  description: "A purely offline, deterministic AST-powered Git conflict resolution engine.",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/logo.png" type="image/png" />
-      </head>
-      <body className="bg-black text-[#ededed] antialiased">
+    <html lang="en" className={inter.className}>
+      <body className="bg-black text-[#ededed] antialiased selection:bg-blue-500/30 selection:text-white">
         {children}
       </body>
     </html>

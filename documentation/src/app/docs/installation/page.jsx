@@ -3,88 +3,119 @@
 import React from 'react';
 import DocsShell from '@/components/DocsShell';
 import TerminalWindow from '@/components/TerminalWindow';
-
-const Step = ({ number, title, children }) => (
-  <div className="relative pl-12 pb-10 last:pb-0 group">
-    <div className="absolute left-0 top-1 w-8 h-8 rounded-lg border border-white/[0.1] bg-[#0a0a0a] flex items-center justify-center text-white font-bold text-xs z-10 group-hover:border-blue-500 transition-all duration-300">
-      {number}
-    </div>
-    <div className="absolute left-4 top-10 bottom-0 w-px bg-white/[0.05] group-last:hidden"></div>
-    <h3 className="text-xl font-bold text-white mb-4 tracking-tight">{title}</h3>
-    <div className="text-[#a1a1aa] text-[15px] leading-relaxed font-medium">
-      {children}
-    </div>
-  </div>
-);
+import { Download, Terminal, Shield, Zap } from 'lucide-react';
 
 export default function Installation() {
   return (
     <DocsShell 
       title="Installation" 
-      subtitle="Get gitresolve up and running in your environment. Compiles to a single static binary for maximum portability."
+      subtitle="Install the gitresolve standalone deterministic binary across Linux, macOS, and Windows."
     >
-      <div className="flex flex-col gap-6 mt-8">
-        <Step number="1" title="Prerequisites">
-          <p>
-            You will need the <span className="text-white font-bold underline underline-offset-4 decoration-blue-500/20">Go 1.20+</span> toolchain installed on your local machine to compile the engine.
-          </p>
-          <div className="mt-6 px-4 py-2 rounded-lg bg-black border border-white/[0.05] font-mono text-[13px] inline-flex items-center gap-3">
-             <span className="text-blue-500 font-bold">$</span> 
-             <span className="text-white">go version</span>
+      <div className="space-y-16">
+        {/* Quick Install */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Quick Install via Go Toolchain</h2>
+            <p className="text-[#a1a1aa] leading-relaxed text-[17px] font-medium max-w-3xl">
+              <code>gitresolve</code> is built in pure Go with zero external C-dependencies. If you have Go 1.22+ installed, you can compile and install directly to your <code>$GOPATH/bin</code>:
+            </p>
           </div>
-        </Step>
 
-        <Step number="2" title="Install the CLI">
-          <p>
-            Pull the latest version directly from the source repository using the Go toolchain.
-          </p>
           <TerminalWindow title="bash">
-            <div className="flex gap-3">
+            <div className="flex gap-3 text-[13px] font-mono">
               <span className="text-blue-500 font-bold">$</span>
-              <span className="text-white">go install github.com/jhanvi857/gitresolve@latest</span>
+              <span className="text-white font-bold">go install github.com/jhanvi857/gitresolve/cmd/gitresolve@latest</span>
             </div>
           </TerminalWindow>
-          <p className="mt-4 text-[13px] text-[#555] font-medium">
-            Make sure your <code className="text-white">$GOPATH/bin</code> is included in your system <code className="text-white">PATH</code>.
-          </p>
-        </Step>
+        </section>
 
-        <Step number="3" title="Verify Installation">
-          <p>
-            Test the installation by confirming the version and help outputs.
-          </p>
+        {/* Build from Source */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Build from Source</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">
+              Clone the repository to build the optimized production release binary locally:
+            </p>
+          </div>
+
           <TerminalWindow title="bash">
-            <div className="flex gap-3">
-              <span className="text-blue-500 font-bold">$</span>
-              <span className="text-white">gitresolve --help</span>
+            <div className="space-y-2 text-[13px] font-mono">
+              <div className="flex gap-3">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">git clone https://github.com/jhanvi857/gitresolve.git</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">cd gitresolve</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">go build -o gitresolve ./cmd/gitresolve</span>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">./gitresolve --version</span>
+              </div>
+              <div className="text-emerald-400 font-bold">gitresolve version 1.4.0 (pure offline engine)</div>
             </div>
           </TerminalWindow>
-        </Step>
+        </section>
 
-        <Step number="4" title="Security & Integrity">
-          <p>
-            For production environments, verify the integrity of the binary using checksums and Cosign signatures.
-          </p>
-          <TerminalWindow title="verification">
-            <div className="flex gap-3">
-              <span className="text-blue-500 font-bold">$</span>
-              <span className="text-white">cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig checksums.txt</span>
+        {/* Verification */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Verify Installation</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">
+              Check that <code>gitresolve</code> is available in your shell <code>$PATH</code>:
+            </p>
+          </div>
+
+          <TerminalWindow title="bash">
+            <div className="space-y-1 text-[13px] font-mono">
+              <div className="flex gap-3">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">gitresolve --help</span>
+              </div>
+              <div className="text-[#888] pt-2">Offline, deterministic AST-powered Git conflict resolution engine</div>
+              <div className="text-[#888]">Available Commands: resolve, merge, scan, status, blame, policy, stats, undo, db</div>
             </div>
           </TerminalWindow>
-        </Step>
-      </div>
+        </section>
 
-      <div className="mt-16 p-8 rounded-xl border border-white/[0.05] bg-black hover-card">
-          <h4 className="text-[11px] font-bold text-white mb-4 uppercase tracking-[0.2em] flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(0,112,243,0.5)]" />
-              Enterprise Support
-          </h4>
-          <p className="text-[#a1a1aa] text-[15px] font-medium leading-relaxed">
-            For air-gapped environments or secure server deployments, gitresolve can be compiled into a static binary with <code className="text-white">CGO_ENABLED=0</code> for zero-dependency execution. 
-            Contact our engineering team for specialized compliance support.
-          </p>
+        {/* Binary Properties */}
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <InstallCard 
+              icon={Shield} 
+              title="100% Offline" 
+              desc="Zero network telemetry, zero external API dependencies, zero LLMs."
+            />
+            <InstallCard 
+              icon={Zap} 
+              title="Sub-Millisecond" 
+              desc="Optimized Go tree analysis resolves conflicts in milliseconds."
+            />
+            <InstallCard 
+              icon={Terminal} 
+              title="Git Native" 
+              desc="Integrates seamlessly with existing git merge and rebase workflows."
+            />
+          </div>
+        </section>
       </div>
     </DocsShell>
+  );
+}
+
+function InstallCard({ icon: Icon, title, desc }) {
+  return (
+    <div className="p-6 rounded-xl bg-black border border-white/[0.05] hover-card group">
+      <div className="w-10 h-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center mb-6 group-hover:border-blue-500/50 transition-colors shadow-lg">
+        <Icon className="w-5 h-5 text-white group-hover:text-blue-500 transition-colors" />
+      </div>
+      <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{title}</h3>
+      <p className="text-[14px] text-[#a1a1aa] font-medium leading-relaxed">{desc}</p>
+    </div>
   );
 }
 

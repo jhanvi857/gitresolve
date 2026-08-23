@@ -9,7 +9,7 @@ export default function ResolveCommand() {
   return (
     <DocsShell 
       title="resolve" 
-      subtitle="Interactive orchestration and automatic conflict resolution."
+      subtitle="Interactive orchestration and automatic conflict resolution with structural risk escalation."
     >
       <div className="space-y-12">
         <section>
@@ -21,33 +21,38 @@ export default function ResolveCommand() {
           </div>
           
           <div className="docs-prose">
-            <p className="text-[17px]">
-              The primary interactive interface. Use <code>resolve</code> to step through conflicted blocks. It combines auto-resolution for trivial blocks with an interactive prompt for logical conflicts.
-            </p>
-
             <TerminalWindow title="bash">
-              <div className="space-y-4 text-[13px]">
-                <div className="flex gap-3">
-                  <span className="text-blue-500 font-bold">$</span>
-                  <span className="text-white font-bold">gitresolve resolve</span>
-                </div>
-                <div className="pt-4 space-y-1">
-                  <div className="text-white font-bold">[Scalar] main.go (L21-25)</div>
-                  <div className="text-[#888]"> [O]urs:   // this comment is different</div>
-                  <div className="text-[#888]"> [T]heirs: // this is a comment</div>
-                  <div className="pt-4 text-blue-500 font-bold">Options: [O]urs [T]heirs [B]oth [M]anual [S]kip</div>
-                  <div className="text-white">Select action: _</div>
-                </div>
+              <div className="flex gap-3 text-[13px] font-mono">
+                <span className="text-blue-500 font-bold">$</span>
+                <span className="text-white font-bold">gitresolve resolve</span>
               </div>
             </TerminalWindow>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
+            <p className="text-[17px]">
+              The primary interactive interface. Use <code>resolve</code> to step through conflicted blocks. It integrates the History-Aware Escalation Layer to perform pre-resolve divergence checks, evaluates structural risks (blast radius, coupled files, import cycles), and automatically merges safe trivial blocks while guiding complex blocks.
+            </p>
+
+            <TerminalWindow title="output">
+              <div className="space-y-3 text-[13px] font-mono">
+                <div className="text-yellow-400 font-semibold">Warning: branch is 15 commits behind main — alice@example.com authored changes touching files you also modified</div>
+                <div className="text-[#888] pl-2">suggested: git fetch && git rebase origin/main</div>
+                <div className="pt-2 text-white font-bold">Conflict in internal/payments/charge.go (lines 45-58):</div>
+                <div className="text-amber-300 pl-2">reason: ProcessPayment is called from 14 other locations — escalating for manual review</div>
+                <div className="text-blue-400 pl-2">suggested: go test ./... (run full suite before committing)</div>
+                <div className="pt-2 text-blue-500 font-bold">Select resolution [1: ours, 2: theirs, 3: manual, 4: abort]: _</div>
+              </div>
+            </TerminalWindow>
+
+            <h3 className="text-lg font-bold text-white mt-8 mb-4">Command Options</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FlagItem flag="--file <path>" desc="Resolve conflicts in a specific file only." />
+              <FlagItem flag="--verbose, -v" desc="Print full factual evidence (AST diff, historical authors, file couplings, decision log row) on escalation." />
+              <FlagItem flag="--skip-sync-check" desc="Bypass pre-resolve branch divergence check against remote default branch." />
               <FlagItem flag="--non-interactive" desc="Exit with status 1 if any conflict requires human input. Perfect for CI gates." />
-              <FlagItem flag="--timeout <duration>" desc="Auto-select 'theirs' after a timeout (e.g., 30s) during interactive prompts." />
-              <FlagItem flag="--strategy <type>" desc="Force a fixed strategy (ours/theirs/both) for all conflicts." />
-              <FlagItem flag="--enforce-gates" desc="Apply release gates based on manual escalation rates." />
-              <FlagItem flag="--path <glob>" desc="Only resolve conflicts in files matching the specified glob pattern." />
-              <FlagItem flag="--dry-run" desc="Preview resolutions without writing any changes to disk." />
+              <FlagItem flag="--dry-run" desc="Preview resolutions and escalation warnings without writing any changes to disk." />
+              <FlagItem flag="--strategy <type>" desc="Force a fixed strategy (ours/theirs/both/interactive) for all conflicts." />
+              <FlagItem flag="--policy-profile <p>" desc="Override active policy profile (strict, balanced, aggressive, auto)." />
+              <FlagItem flag="--timeout <duration>" desc="Timeout for interactive prompt (e.g. 30s). Auto-selects theirs if reached." />
             </div>
           </div>
         </section>
