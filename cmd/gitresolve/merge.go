@@ -3,32 +3,62 @@ package gitresolve
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/ownership"
+	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/jhanvi857/gitresolve/internal/safety"
 	"github.com/jhanvi857/gitresolve/internal/store"
 	gserrors "github.com/jhanvi857/gitresolve/pkg/errors"
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
 var dryRun bool
+var noAutoStructured bool
+var mergeShadow bool
+var mergeEnforceGates bool
+var mergeManualRateGate float64
+var mergePolicyProfile string
 
 var mergeCmd = &cobra.Command{
 	Use:   "merge",
 	Short: "Run smart merge on current conflicts",
 	Long:  `Analyzes and auto-resolves smart merge conflicts using deterministic rule-based algorithms. Escapes complex semantic or structural discrepancies to manual review securely.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Engine Bootup: Initializing gitresolve in directory '.' (DryRun: %v)\n", dryRun)
+		fmt.Printf("Engine Bootup: Initializing gitresolve in directory '.' (DryRun: %v, NoAutoStructured: %v)\n", dryRun, noAutoStructured)
 
 		repoPath := "."
-		r, err := git.Open(".")
+		repoRoot, err := ResolveRepoRoot()
+		if err != nil {
+			fmt.Println("Fatal: failed to resolve repository root:", err)
+			return
+		}
+
+		root, err := safepath.RepoRoot(repoRoot)
+		if err != nil {
+			fmt.Println("Fatal: failed to open repository sandbox:", err)
+			return
+		}
+		defer root.Close()
+
+		r, err := git.Open(".", root)
 		if err != nil {
 			fmt.Println("Fatal: Failed to open git repository: ", err)
 			return
 		}
+		defer func() {
+			if rec := recover(); rec != nil {
+				_ = git.Close(r)
+				panic(rec)
+			}
+		}()
 		defer git.Close(r)
+		HandleSignals(r)
 
 		db, dbErr := openStore(repoPath)
 		if dbErr == nil {
@@ -38,8 +68,12 @@ var mergeCmd = &cobra.Command{
 		if !dryRun && dbErr == nil {
 			head, headErr := r.HeadCommit()
 			if headErr == nil {
-				_ = db.SaveSession(repoPath, "merge", head)
-				_ = git.StoreHead(repoPath, head)
+				if err := db.SaveSession(repoPath, "merge", head); err != nil {
+					logger.Debug().Err(err).Msg("failed to save session")
+				}
+				if err := git.StoreHead(root, head); err != nil {
+					logger.Debug().Err(err).Msg("failed to store head")
+				}
 			}
 		}
 
@@ -50,90 +84,240 @@ var mergeCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Scanning index. Found %d unmerged conflicts...\n", len(files))
-		writer := safety.NewWriter(dryRun)
+		writer := safety.NewWriter(dryRun, root)
+
+		var backupsCreated []string
+		defer func() {
+			for _, b := range backupsCreated {
+				if err := safety.RemoveBackup(root, b); err != nil {
+					logger.Debug().Err(err).Str("file", b).Msg("failed to remove backup file")
+				}
+			}
+		}()
+
+		autoResolved := 0
+		interactiveResolved := 0 // remain 0 for merge command
+		validationFailed := 0
+		filesUpdated := 0
+		totalDecisions := 0
+		manualEscalations := 0
+		var failedFiles []string
 
 		for _, file := range files {
 			fmt.Printf("\n--- Processing %s ---\n", file)
 
 			if !dryRun {
-				if err := safety.PreserveOriginal(file); err != nil {
+				if err := safety.PreserveOriginal(root, file); err != nil {
 					fmt.Println("Warning: Could not create backup:", err)
 					continue
 				}
+				backupsCreated = append(backupsCreated, file)
 			}
 
-			content, err := os.ReadFile(file)
+			f, err := safepath.SafeOpen(root, file)
+			if err != nil {
+				fmt.Println("Error reading file:", err)
+				continue
+			}
+
+			content, err := io.ReadAll(f)
+			if closeErr := f.Close(); closeErr != nil {
+				logger.Debug().Err(closeErr).Str("file", file).Msg("failed to close file")
+			}
 			if err != nil {
 				fmt.Println("Error reading file:", err)
 				continue
 			}
 
 			conflicts := conflict.ParseFile(file, content)
-			var autoResolvedCount int
+			var fileAutoResolved int
 
 			for _, c := range conflicts {
+				totalDecisions++
 				conflict.Classify(c)
-				if c.CanAutoResolve {
-					resolved := conflict.AutoResolve(c)
+				resolvedPolicy, policyErr := ownership.ResolvePolicyProfile(root, file, mergePolicyProfile)
+				if policyErr != nil {
+					fmt.Printf("Warning: policy resolution failed for %s: %v (falling back to balanced)\n", file, policyErr)
+					resolvedPolicy = ownership.PolicyBalanced
+				}
+
+				if shouldAutoApplyWithPolicy(c, resolvedPolicy) {
+					resolved := conflict.AutoResolve(c, conflict.Options{
+						NoAutoStructured: noAutoStructured,
+					})
 					if resolved {
-						autoResolvedCount++
+						fileAutoResolved++
+						autoResolved++
 						if dbErr == nil {
-							_ = db.SaveConflict(store.ConflictRecord{
+							if err := db.SaveConflict(store.ConflictRecord{
 								RepoPath:     repoPath,
 								FilePath:     file,
 								ConflictType: typeLabel(c.Type),
 								Severity:     severityLabel(c.Severity),
 								Strategy:     "auto",
-							})
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save conflict record")
+							}
+							if err := db.SaveDecision(store.DecisionRecord{
+								RepoPath:     repoPath,
+								FilePath:     file,
+								Operation:    "merge",
+								ConflictType: typeLabel(c.Type),
+								Severity:     severityLabel(c.Severity),
+								Action:       "auto-resolve",
+								ReasonCode:   reasonCodeOrUnknown(c),
+								Reason:       c.ManualReason,
+								Confidence:   c.Confidence,
+								Shadow:       mergeShadow,
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+							}
+						}
+					} else {
+						fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
+						manualEscalations++
+						if dbErr == nil {
+							if err := db.SaveConflict(store.ConflictRecord{
+								RepoPath:     repoPath,
+								FilePath:     file,
+								ConflictType: typeLabel(c.Type),
+								Severity:     severityLabel(c.Severity),
+								Strategy:     "manual-required",
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save conflict record")
+							}
+							if err := db.SaveDecision(store.DecisionRecord{
+								RepoPath:     repoPath,
+								FilePath:     file,
+								Operation:    "merge",
+								ConflictType: typeLabel(c.Type),
+								Severity:     severityLabel(c.Severity),
+								Action:       "manual-escalate",
+								ReasonCode:   reasonCodeOrUnknown(c),
+								Reason:       c.ManualReason,
+								Confidence:   c.Confidence,
+								Shadow:       mergeShadow,
+							}); err != nil {
+								logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+							}
 						}
 					}
 				} else {
-					fmt.Printf(" > Escalating conflict [Severity %d] %v\n", c.Severity, c.Type)
+					manualEscalations++
 					if dbErr == nil {
-						_ = db.SaveConflict(store.ConflictRecord{
+						if err := db.SaveDecision(store.DecisionRecord{
 							RepoPath:     repoPath,
 							FilePath:     file,
+							Operation:    "merge",
 							ConflictType: typeLabel(c.Type),
 							Severity:     severityLabel(c.Severity),
-							Strategy:     "manual-required",
-						})
+							Action:       "manual-escalate",
+							ReasonCode:   reasonCodeOrUnknown(c),
+							Reason:       c.ManualReason,
+							Confidence:   c.Confidence,
+							Shadow:       mergeShadow,
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save decision record")
+						}
 					}
 				}
 			}
 
-			if autoResolvedCount > 0 {
+			if fileAutoResolved > 0 {
 				newContent := conflict.CompileResolution(content, conflicts)
-				if err := conflict.Verify(file, newContent); err != nil {
-					fmt.Println("Error: Verification failed:", err)
+				if mergeShadow {
+					if dbErr == nil {
+						if err := db.SaveDecision(store.DecisionRecord{
+							RepoPath:      repoPath,
+							FilePath:      file,
+							Operation:     "merge",
+							ConflictType:  "file",
+							Severity:      "info",
+							Action:        "shadow-diff",
+							ReasonCode:    conflict.ReasonShadowDiff,
+							Reason:        "shadow simulation recorded",
+							Confidence:    1,
+							Shadow:        true,
+							OriginalHash:  hashContent(content),
+							SimulatedHash: hashContent([]byte(newContent)),
+						}); err != nil {
+							logger.Warn().Err(err).Str("file", file).Msg("failed to save shadow decision record")
+						}
+					}
+					fmt.Printf("[shadow] simulated resolution for %s (no write)\n", file)
 					continue
 				}
-
-				err := writer.Write(file, []byte(newContent))
-				if err != nil {
-					if dryRun && errors.Is(err, gserrors.ErrDryRun) {
-						fmt.Printf(" > [dry-run] would apply auto-resolution to %s (%d/%d blocks).\n", file, autoResolvedCount, len(conflicts))
-					} else {
-						fmt.Println("Error: Atomic write failed:", err)
+				if strings.HasSuffix(file, ".go") {
+					if err := conflict.ValidateGoSyntax(file, newContent); err != nil {
+						reason := "reconstructed output failed Go syntax validation"
+						fmt.Printf("Escalating %s to manual: %s (%v)\n", file, reason, err)
+						manualEscalations += len(conflicts)
+						validationFailed++
+						failedFiles = append(failedFiles, file)
 						continue
 					}
 				}
-
-				if autoResolvedCount == len(conflicts) && !dryRun {
-					git.MarkResolved(r, file)
-					fmt.Printf(" > Successfully auto-resolved 100%% of conflicts in %s and staged.\n", file)
-				} else {
-					fmt.Printf(" > Auto-resolved %d of %d conflicts in %s. Manual review still required for remainder.\n", autoResolvedCount, len(conflicts), file)
+				if err := conflict.Verify(file, newContent); err != nil {
+					fmt.Println("Error: Verification failed:", err)
+					validationFailed++
+					failedFiles = append(failedFiles, file)
+					continue
 				}
-			} else {
-				fmt.Printf(" > No safe resolutions could be applied to %s.\n", file)
+
+				if err := writer.Write(file, []byte(newContent)); err != nil {
+					if dryRun && errors.Is(err, gserrors.ErrDryRun) {
+						fmt.Printf(" > [dry-run] would apply auto-resolution to %s\n", file)
+						filesUpdated++
+						continue
+					}
+					fmt.Println("Error: Write failed:", err)
+					validationFailed++
+					failedFiles = append(failedFiles, file)
+					continue
+				}
+
+				if fileAutoResolved == len(conflicts) && !dryRun {
+					if err := git.MarkResolved(r, file); err != nil {
+						fmt.Printf("Error marking %s as resolved: %v\n", file, err)
+					}
+				}
+				filesUpdated++
 			}
 		}
 
-		fmt.Println("\nMerge scan complete.")
+		fmt.Printf("\nMerge complete. Summary:\n")
+		fmt.Printf("  auto_resolved: %d\n", autoResolved)
+		fmt.Printf("  interactive_resolved: %d\n", interactiveResolved)
+		fmt.Printf("  manual_escalations: %d\n", manualEscalations)
+		fmt.Printf("  total_decisions: %d\n", totalDecisions)
+		fmt.Printf("  validation_failed: %d\n", validationFailed)
+		fmt.Printf("  files_updated: %d\n", filesUpdated)
+		if totalDecisions > 0 {
+			manualRate := (float64(manualEscalations) / float64(totalDecisions)) * 100
+			fmt.Printf("  manual_escalation_rate: %.2f%%\n", manualRate)
+			if mergeEnforceGates && manualRate > mergeManualRateGate {
+				fmt.Printf("Release gate failed: manual escalation rate %.2f%% exceeds threshold %.2f%%\n", manualRate, mergeManualRateGate)
+				os.Exit(1)
+			}
+		}
+
+		if validationFailed > 0 {
+			fmt.Println("\nFiles with validation failures:")
+			for _, f := range failedFiles {
+				fmt.Printf("  - %s\n", f)
+			}
+			os.Exit(1)
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(mergeCmd)
 	mergeCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would happen without writing")
+	mergeCmd.Flags().BoolVar(&dryRun, "dryrun", false, "alias for --dry-run")
+	mergeCmd.Flags().BoolVar(&mergeShadow, "shadow", false, "simulate resolution and record hash-only diff decisions without writing")
+	mergeCmd.Flags().StringVar(&mergePolicyProfile, "policy-profile", ownership.PolicyAuto, "policy profile: auto|strict|balanced|aggressive")
+	mergeCmd.Flags().BoolVar(&noAutoStructured, "no-auto-structured", false, "disable auto-resolution for structured files (JSON/YAML/TOML)")
+	mergeCmd.Flags().BoolVar(&mergeEnforceGates, "enforce-gates", false, "enforce release gate thresholds (manual rate and validation failures)")
+	mergeCmd.Flags().Float64Var(&mergeManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")
 }

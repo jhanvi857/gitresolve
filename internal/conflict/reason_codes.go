@@ -1,0 +1,78 @@
+package conflict
+
+import "fmt"
+
+const (
+	ReasonParserMalformedNestedMarker = "parser.malformed_nested_marker"
+	ReasonParserFileTooLarge          = "parser.file_too_large"
+	ReasonParserMissingDivider        = "parser.missing_divider"
+	ReasonSemanticUnsupportedLanguage = "semantic.unsupported_language"
+	ReasonSemanticParseFailed         = "semantic.parse_failed"
+	ReasonSemanticHighBlastRadius     = "semantic.high_blast_radius"
+	ReasonSemanticMissingCoupledFile  = "semantic.missing_coupled_file"
+	ReasonSemanticImportCycle         = "semantic.import_cycle"
+	ReasonSafetyIncompleteStructure   = "safety.incomplete_structure"
+	ReasonStrategyBothBlockedRisk     = "strategy.both_blocked_high_risk"
+	ReasonStrategyTimeoutAutoTheirs   = "strategy.timeout_auto_theirs"
+	ReasonStrategyIdenticalBothSides  = "strategy.identical_both_sides"
+	ReasonStrategyStaleBranchDiv      = "strategy.stale_branch_divergence"
+	ReasonStrategyMultiAuthorConflict = "strategy.multi_author_conflict"
+	ReasonValidationSyntaxFailed      = "validation.syntax_failed"
+	ReasonStructuredAutoDisabled      = "structured.auto_disabled"
+	ReasonStructuredOverlap           = "structured.overlap"
+	ReasonStructuredParseFailed       = "structured.parse_failed"
+	ReasonImportOverlapCritical       = "import.overlap_critical"
+	ReasonImportMergeFailed           = "import.merge_failed"
+	ReasonImportParseFailed           = "import.parse_failed"
+	ReasonDecisionUnknown             = "decision.unknown"
+	ReasonShadowDiff                  = "decision.shadow_diff"
+)
+
+var stableReasonCodeSet = map[string]struct{}{
+	ReasonParserMalformedNestedMarker: {},
+	ReasonParserFileTooLarge:          {},
+	ReasonParserMissingDivider:        {},
+	ReasonSemanticUnsupportedLanguage: {},
+	ReasonSemanticParseFailed:         {},
+	ReasonSemanticHighBlastRadius:     {},
+	ReasonSemanticMissingCoupledFile:  {},
+	ReasonSemanticImportCycle:         {},
+	ReasonSafetyIncompleteStructure:   {},
+	ReasonStrategyBothBlockedRisk:     {},
+	ReasonStrategyTimeoutAutoTheirs:   {},
+	ReasonStrategyIdenticalBothSides:  {},
+	ReasonStrategyStaleBranchDiv:      {},
+	ReasonStrategyMultiAuthorConflict: {},
+	ReasonValidationSyntaxFailed:      {},
+	ReasonStructuredAutoDisabled:      {},
+	ReasonStructuredOverlap:           {},
+	ReasonStructuredParseFailed:       {},
+	ReasonImportOverlapCritical:       {},
+	ReasonImportMergeFailed:           {},
+	ReasonImportParseFailed:           {},
+	ReasonDecisionUnknown:             {},
+	ReasonShadowDiff:                  {},
+}
+
+func IsStableReasonCode(code string) bool {
+	_, ok := stableReasonCodeSet[code]
+	return ok
+}
+
+func SetManualEscalation(c *ConflictBlock, code, reason, hint string) {
+	if c == nil {
+		return
+	}
+	if code != "" && IsStableReasonCode(code) {
+		c.ManualReasonCode = code
+	} else if code != "" {
+		// Keep the human reason useful even if caller used an unknown code.
+		reason = fmt.Sprintf("%s (invalid reason code: %s)", reason, code)
+	}
+	if reason != "" {
+		c.ManualReason = reason
+	}
+	if hint != "" {
+		c.SuggestHint = hint
+	}
+}

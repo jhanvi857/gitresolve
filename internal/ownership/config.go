@@ -3,6 +3,7 @@ package ownership
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -12,15 +13,22 @@ type OwnersConfig struct {
 }
 
 // LoadConfig : reads .gitresolve/owners.json
-func LoadConfig(repoPath string) (*OwnersConfig, error) {
-	configPath := repoPath + "/.gitresolve/owners.json"
+func LoadConfig(root *os.Root) (*OwnersConfig, error) {
+	configPath := ".gitresolve/owners.json"
 
-	data, err := os.ReadFile(configPath)
+	// safepath: CWE-22 hardened
+	f, err := root.Open(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &OwnersConfig{Owners: make(map[string]string)}, nil
 		}
 		return nil, fmt.Errorf("LoadConfig: %w", err)
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("LoadConfig: reading owners.json: %w", err)
 	}
 
 	var config OwnersConfig

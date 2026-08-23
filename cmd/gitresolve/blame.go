@@ -8,6 +8,7 @@ import (
 )
 
 var blameFileName string
+var blamePatterns bool
 
 var blameCmd = &cobra.Command{
 	Use:   "blame",
@@ -20,6 +21,23 @@ var blameCmd = &cobra.Command{
 			return
 		}
 		defer db.Close()
+
+		if blamePatterns {
+			patterns, err := db.GetPatterns(".")
+			if err != nil {
+				fmt.Println("Blame failed to fetch patterns:", err)
+				return
+			}
+			if len(patterns) == 0 {
+				fmt.Println("No patterns detected yet.")
+				return
+			}
+			fmt.Println("Conflict Pattern Analysis:")
+			for _, p := range patterns {
+				fmt.Printf("  %-14s  %d occurrences\n", p.Label, p.Count)
+			}
+			return
+		}
 
 		records, err := db.GetHistory(".")
 		if err != nil {
@@ -52,4 +70,5 @@ var blameCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(blameCmd)
 	blameCmd.Flags().StringVar(&blameFileName, "file", "", "show history for a specific file")
+	blameCmd.Flags().BoolVar(&blamePatterns, "patterns", false, "display conflict pattern analysis")
 }

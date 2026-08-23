@@ -1,0 +1,16 @@
+﻿{
+    "repo":  "chi",
+    "url":  "https://github.com/go-chi/chi.git",
+    "candidates_considered":  46,
+    "candidates_skipped":  4,
+    "scenarios_attempted":  42,
+    "scenarios_with_conflicts":  0,
+    "total_decisions":  0,
+    "auto_resolved":  0,
+    "manual_escalated":  0,
+    "manual_escalation_rate":  0,
+    "validator_blocked_unsafe":  0,
+    "scenario_details":  [
+
+                         ]
+}

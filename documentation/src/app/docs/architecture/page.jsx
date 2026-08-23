@@ -70,7 +70,7 @@ export default function Architecture() {
               <PipeStep 
                 num="04" 
                 title="Semantic Strategy Execution" 
-                desc="Running the actual merge logic. For structured files, this is a deep recursive map merge. For code, it's an AST transformation." 
+                desc="Running the actual merge logic. For structured files, this is a deep recursive map merge. For code, it&apos;s an AST transformation." 
               />
               <PipeStep 
                 num="05" 

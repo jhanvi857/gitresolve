@@ -118,3 +118,4 @@ function InstallCard({ icon: Icon, title, desc }) {
     </div>
   );
 }
+

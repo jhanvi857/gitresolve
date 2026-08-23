@@ -22,6 +22,7 @@ const (
 	TypeLogic
 	TypeStructured
 	TypeDeleteModify
+	TypeScalar
 	TypeUnknown
 )
 
@@ -36,15 +37,23 @@ const (
 	SeverityCritical
 )
 
-type Conflict struct {
-	FilePath       string
-	StartLine      int
-	EndLine        int
-	OurLines       []string
-	TheirLines     []string
-	BaseLines      []string
-	Type           ConflictType
-	Severity       Severity
-	CanAutoResolve bool
-	Resolution     string
+type ConflictBlock struct {
+	FilePath         string
+	StartLine        int
+	EndLine          int
+	StartIndex       int
+	EndIndex         int
+	OursLines        []string
+	TheirsLines      []string
+	BaseLines        []string
+	PreLines         []string
+	PostLines        []string
+	Type             ConflictType
+	Severity         Severity
+	Confidence       float64
+	CanAutoResolve   bool
+	Resolution       string
+	ManualReasonCode string
+	ManualReason     string
+	SuggestHint      string
 }

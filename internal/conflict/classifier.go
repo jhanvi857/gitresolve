@@ -2,62 +2,103 @@ package conflict
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
+
+	"github.com/jhanvi857/gitresolve/internal/analysis"
 )
 
-func Classify(c *Conflict) {
-	// rule 1: whitespace only
-	// strip all whitespace from both sides and compare
-	// if they are identical after stripping = whitespace conflict
-	if isWhitespaceOnly(c.OurLines, c.TheirLines) {
-		c.Type = TypeWhitespace
+const (
+	AutoResolveConfidenceThreshold = 0.80
+)
+
+func Classify(c *ConflictBlock) {
+	if hasEmbeddedConflictMarkers(c) || strings.Contains(c.ManualReason, "malformed conflict markers") {
+		c.Type = TypeUnknown
+		c.Severity = SeverityCritical
+		c.Confidence = 0.05
+		c.CanAutoResolve = false
+		if c.ManualReason == "" || c.ManualReasonCode == "" {
+			SetManualEscalation(c, ReasonParserMalformedNestedMarker, "malformed conflict markers detected", "prefer ours/theirs or manual edit for nested/irregular markers")
+		}
+		return
+	}
+
+	// rule 1: both sides made identical changes
+	// this happens when two devs independently fix the same bug
+	if linesIdentical(c.OursLines, c.TheirsLines) {
+		c.Type = TypeIdentical
 		c.Severity = SeverityTrivial
+		c.Confidence = 0.99
 		c.CanAutoResolve = true
 		return
 	}
 
-	// rule 2: both sides made identical changes
-	// this happens when two devs independently fix the same bug
-	if linesIdentical(c.OurLines, c.TheirLines) {
-		c.Type = TypeIdentical
+	// rule 2: whitespace only
+	// strip all whitespace from both sides and compare
+	// if they are identical after stripping = whitespace conflict
+	if isWhitespaceOnly(c.OursLines, c.TheirsLines) {
+		c.Type = TypeWhitespace
 		c.Severity = SeverityTrivial
+		c.Confidence = 0.99
 		c.CanAutoResolve = true
 		return
 	}
 
 	// rule 3: import block conflict
 	// all changed lines on both sides are import statements
-	if isImportConflict(c.OurLines, c.TheirLines) {
+	if isImportConflict(c.FilePath, c.OursLines, c.TheirsLines) {
 		c.Type = TypeImport
 		c.Severity = SeverityLow
-		c.CanAutoResolve = true
+		c.Confidence = 0.84
+		if analysis.IsCriticalFile(c.FilePath) {
+			c.Severity = SeverityHigh
+			c.Confidence = 0.82
+		}
+
+		if containsComplexImports(c.FilePath, c.OursLines, c.TheirsLines) {
+			c.Severity = SeverityMedium
+			c.Confidence = 0.48
+			c.CanAutoResolve = false // Fallback to manual for complex python/java imports
+		} else {
+			c.CanAutoResolve = true
+		}
 		return
 	}
 
 	// rule 4: structured file conflict
 	// JSON/YAML/TOML : handled by structured.go not line diff
-	if isStructuredFile(c.FilePath) {
+	if analysis.IsStructuredFile(c.FilePath) {
 		c.Type = TypeStructured
-		c.Severity = SeverityLow
-		c.CanAutoResolve = false
+		if analysis.IsCriticalFile(c.FilePath) {
+			c.Severity = SeverityHigh
+			c.Confidence = 0.83
+			c.CanAutoResolve = true // Allow structured merger to attempt safe resolution
+		} else {
+			c.Severity = SeverityLow
+			c.Confidence = 0.82
+			c.CanAutoResolve = true
+		}
 		return
 	}
 
 	// rule 5: delete vs modify
 	// one side has no lines (deletion) other side has lines (modification)
 	// this is dangerous : someone deleted something the other person was using
-	if isDeleteModify(c.OurLines, c.TheirLines) {
+	if isDeleteModify(c.OursLines, c.TheirsLines) {
 		c.Type = TypeDeleteModify
 		c.Severity = SeverityCritical
+		c.Confidence = 0.10
 		c.CanAutoResolve = false
 		return
 	}
 
 	// rule 6: function signature change
 	// check if lines contain function definition keywords
-	if isSignatureChange(c.OurLines, c.TheirLines) {
+	if isSignatureChange(c.FilePath, c.OursLines, c.TheirsLines) {
 		c.Type = TypeSignature
 		c.Severity = SeverityHigh
+		c.Confidence = 0.20
 		c.CanAutoResolve = false
 		return
 	}
@@ -67,6 +108,45 @@ func Classify(c *Conflict) {
 	if isSensitivePath(c.FilePath) {
 		c.Type = TypeLogic
 		c.Severity = SeverityCritical
+		c.Confidence = 0.12
+		c.CanAutoResolve = false
+		return
+	}
+
+	// rule 8: check for critical files (go.mod, etc. which might not be structured)
+	if analysis.IsCriticalFile(c.FilePath) {
+		c.Type = TypeLogic
+		c.Severity = SeverityHigh
+		c.Confidence = 0.58
+		c.CanAutoResolve = false
+		return
+	}
+
+	if isSourceLikeFile(c.FilePath) && !hasSemanticResolverCoverage(c.FilePath) {
+		c.Type = TypeUnknown
+		c.Severity = SeverityHigh
+		c.Confidence = 0.35
+		c.CanAutoResolve = false
+		if c.ManualReason == "" || c.ManualReasonCode == "" {
+			SetManualEscalation(c, ReasonSemanticUnsupportedLanguage, "language-specific semantic resolver not available for this file type", "use ours/theirs/manual and run language-native checks after merge")
+		}
+		return
+	}
+
+	if isSourceLikeFile(c.FilePath) && hasSemanticResolverCoverage(c.FilePath) && !semanticParserAvailable(c.FilePath) {
+		c.Type = TypeUnknown
+		c.Severity = SeverityHigh
+		c.Confidence = 0.30
+		c.CanAutoResolve = false
+		SetManualEscalation(c, ReasonSemanticParseFailed, "semantic parser unavailable for this environment", "install parser/runtime support or resolve manually with ours/theirs")
+		return
+	}
+
+	// rule 8: scalar change (single line, non-critical, non-signature)
+	if isScalarChange(c.OursLines, c.TheirsLines) {
+		c.Type = TypeScalar
+		c.Severity = SeverityMedium
+		c.Confidence = 0.58
 		c.CanAutoResolve = false
 		return
 	}
@@ -74,7 +154,43 @@ func Classify(c *Conflict) {
 	// default: logic conflict, medium severity, needs human review
 	c.Type = TypeLogic
 	c.Severity = SeverityMedium
+	c.Confidence = 0.50
 	c.CanAutoResolve = false
+}
+
+func ShouldAutoApply(c *ConflictBlock) bool {
+	return c.CanAutoResolve && c.Confidence >= AutoResolveConfidenceThreshold
+}
+
+func isScalarChange(ours, theirs []string) bool {
+	// A scalar change is a very small (1-line) modification to an existing line
+	// that doesn't trigger signature detection, import detection, etc.
+	// It's still safer to have human review, but we mark it as Scalar for better UX.
+	return len(ours) == 1 && len(theirs) == 1
+}
+
+func containsComplexImports(filePath string, ours, theirs []string) bool {
+	// Go imports will be handled correctly by go/ast in auto.go, so we don't block them here
+	if strings.HasSuffix(filePath, ".go") {
+		return false
+	}
+
+	allLines := append(ours, theirs...)
+	for _, line := range allLines {
+		trimmed := strings.TrimSpace(line)
+
+		// Python: relative import or alias
+		if strings.HasPrefix(trimmed, "from .") || strings.Contains(trimmed, " as ") {
+			return true
+		}
+
+		// Java: wildcard import
+		if strings.HasPrefix(trimmed, "import ") && strings.Contains(trimmed, "*;") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isWhitespaceOnly(ours, theirs []string) bool {
@@ -110,7 +226,7 @@ func linesIdentical(ours, theirs []string) bool {
 	return true
 }
 
-func isImportConflict(ours, theirs []string) bool {
+func isImportConflict(filePath string, ours, theirs []string) bool {
 	// every line on both sides must look like an import statement
 	// we check for common import patterns across languages
 	allLines := append(ours, theirs...)
@@ -119,27 +235,33 @@ func isImportConflict(ours, theirs []string) bool {
 		if trimmed == "" {
 			continue
 		}
-		if !isImportLine(trimmed) {
+		if !isImportLine(filePath, line) {
 			return false
 		}
 	}
 	return len(allLines) > 0
 }
 
-func isImportLine(line string) bool {
-	// Go:         import "fmt"  or  "github.com/..."
-	// JavaScript: import React from 'react'
-	// Python:     import os  or  from os import path
-	// Java:       import java.util.List;
-	return strings.HasPrefix(line, "import ") ||
-		strings.HasPrefix(line, "from ") ||
-		strings.HasPrefix(line, "\"") ||
-		strings.HasPrefix(line, "'")
-}
+func isImportLine(filePath, line string) bool {
+	// Refined heuristics with Regex to avoid false positives on normal strings
+	goImport := regexp.MustCompile(`^(import\s*(?:\(\s*)?|(?:[a-zA-Z0-9_.]+\s+)?"[a-zA-Z0-9_\-\./]+"|\))`)
+	jsImport := regexp.MustCompile(`^(import\s+.*from\s+['"].*['"]|require\(['"].*['"]\))`)
+	pyImport := regexp.MustCompile(`^(import\s+[a-zA-Z0-9_\.]+|from\s+[a-zA-Z0-9_\.]+\s+import)`)
+	javaImport := regexp.MustCompile(`^import\s+[a-zA-Z0-9_\.]+;*`)
 
-func isStructuredFile(filePath string) bool {
-	ext := filepath.Ext(filePath)
-	return ext == ".json" || ext == ".yaml" || ext == ".yml" || ext == ".toml"
+	// go.mod support
+	if strings.HasSuffix(strings.ToLower(filePath), "go.mod") {
+		goMod := regexp.MustCompile(`^(require|module|go|retract|exclude|replace)(\s+|$)`)
+		trimmed := strings.TrimSpace(line)
+		if goMod.MatchString(line) || trimmed == "(" || trimmed == ")" || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") || strings.Contains(line, " v") {
+			return true
+		}
+	}
+
+	return goImport.MatchString(line) ||
+		jsImport.MatchString(line) ||
+		pyImport.MatchString(line) ||
+		javaImport.MatchString(line)
 }
 
 func isDeleteModify(ours, theirs []string) bool {
@@ -150,13 +272,39 @@ func isDeleteModify(ours, theirs []string) bool {
 	return ourEmpty != theirEmpty
 }
 
-func isSignatureChange(ours, theirs []string) bool {
-	// check if any line looks like a function signature
-	// if both sides changed lines that contain function definitions
-	// that is a signature conflict
+func isSignatureChange(filePath string, ours, theirs []string) bool {
+	// Fallback fast heuristic
 	ourHasFunc := containsFuncDef(ours)
 	theirHasFunc := containsFuncDef(theirs)
-	return ourHasFunc && theirHasFunc
+
+	if ourHasFunc && theirHasFunc {
+		// Verify using AST if it really contains function declarations
+		ourAST, err1 := analysis.ParseFile(filePath, []byte(strings.Join(ours, "\n")))
+		theirAST, err2 := analysis.ParseFile(filePath, []byte(strings.Join(theirs, "\n")))
+
+		if err1 == nil && err2 == nil && ourAST != nil && theirAST != nil {
+			ourNodes := analysis.FindChangedNodes(ourAST, 0, len(ours)+1)
+			theirNodes := analysis.FindChangedNodes(theirAST, 0, len(theirs)+1)
+
+			hasFuncChange := func(nodes []*analysis.Node) bool {
+				for _, n := range nodes {
+					if n.Type == "function_declaration" || n.Type == "method_declaration" || n.Type == "arrow_function" || n.Type == "lexical_declaration" || n.Type == "ERROR" {
+						return true
+					}
+				}
+				return false
+			}
+
+			if hasFuncChange(ourNodes) && hasFuncChange(theirNodes) {
+				return true
+			}
+		}
+
+		// If AST fails or nodes not parsed perfectly cleanly (due to incomplete snippet), return true since heuristic passed
+		return true
+	}
+
+	return false
 }
 
 func containsFuncDef(lines []string) bool {
@@ -171,6 +319,9 @@ func containsFuncDef(lines []string) bool {
 			strings.HasPrefix(trimmed, "def ") ||
 			strings.HasPrefix(trimmed, "public ") ||
 			strings.HasPrefix(trimmed, "private ") ||
+			strings.HasPrefix(trimmed, "type ") ||
+			strings.HasPrefix(trimmed, "interface ") ||
+			strings.HasPrefix(trimmed, "class ") ||
 			strings.Contains(trimmed, "=> {") {
 			return true
 		}
@@ -179,19 +330,61 @@ func containsFuncDef(lines []string) bool {
 }
 
 func isSensitivePath(filePath string) bool {
-	// file paths containing these words get critical severity
-	// because bugs in these areas have serious consequences
 	sensitivePatterns := []string{
 		"auth", "security", "crypto", "password",
 		"token", "secret", "migration", "payment",
 		"billing", "admin",
 	}
+	normalized := strings.ToLower(filepath.ToSlash(filePath))
+	segments := strings.Split(normalized, "/")
+	for _, seg := range segments {
+		// strip extension from the final segment for matching
+		seg = strings.TrimSuffix(seg, filepath.Ext(seg))
+		for _, pattern := range sensitivePatterns {
+			if seg == pattern {
+				return true
+			}
+		}
+	}
+	return false
+}
 
-	lowerPath := strings.ToLower(filePath)
-	for _, pattern := range sensitivePatterns {
-		if strings.Contains(lowerPath, pattern) {
+func hasEmbeddedConflictMarkers(c *ConflictBlock) bool {
+	all := append([]string{}, c.OursLines...)
+	all = append(all, c.BaseLines...)
+	all = append(all, c.TheirsLines...)
+	for _, line := range all {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "<<<<<<<") || strings.HasPrefix(trimmed, "=======") || strings.HasPrefix(trimmed, ">>>>>>>") || strings.HasPrefix(trimmed, "|||||||") {
 			return true
 		}
+	}
+	return false
+}
+
+func isSourceLikeFile(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".go", ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".kt", ".rb", ".php", ".rs", ".c", ".cc", ".cpp", ".h", ".hpp", ".cs", ".swift":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasSemanticResolverCoverage(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	return ext == ".go" || ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx"
+}
+
+func semanticParserAvailable(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext == ".go" {
+		return true
+	}
+	if ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx" {
+		_, err := analysis.ParseFile("probe"+ext, []byte("const __gitresolve_probe = 1;"))
+		return err == nil
 	}
 	return false
 }
