@@ -19,9 +19,9 @@ func TestEvaluateHistoryEscalation_BlastRadius(t *testing.T) {
 	}
 
 	c := &conflict.ConflictBlock{
-		FilePath:  "trade.go",
-		OursLines: []string{"func ExecuteTrade(t Trade) error {"},
-		TheirsLines: []string{"func ExecuteTrade(t Trade, ctx Context) error {"},
+		FilePath:       "trade.go",
+		OursLines:      []string{"func ExecuteTrade(t Trade) error {"},
+		TheirsLines:    []string{"func ExecuteTrade(t Trade, ctx Context) error {"},
 		CanAutoResolve: true,
 	}
 
@@ -45,9 +45,9 @@ func TestEvaluateHistoryEscalation_MissingCoupledFile(t *testing.T) {
 	idx.FileCoChanges["root.go"] = map[string]int{"base.go": 100}
 
 	c := &conflict.ConflictBlock{
-		FilePath:  "api/routes.go",
-		OursLines: []string{"r.GET(\"/users\", GetUsers)"},
-		TheirsLines: []string{"r.GET(\"/v2/users\", GetUsersV2)"},
+		FilePath:       "api/routes.go",
+		OursLines:      []string{"r.GET(\"/users\", GetUsers)"},
+		TheirsLines:    []string{"r.GET(\"/v2/users\", GetUsersV2)"},
 		CanAutoResolve: true,
 	}
 
@@ -69,9 +69,9 @@ func TestEvaluateHistoryEscalation_ImportCycle(t *testing.T) {
 	idx.ImportEdges["pkg/y"] = []string{"pkg/x"}
 
 	c := &conflict.ConflictBlock{
-		FilePath:  "pkg/x/mod.go",
-		OursLines: []string{"var X = 1"},
-		TheirsLines: []string{"var X = 2"},
+		FilePath:       "pkg/x/mod.go",
+		OursLines:      []string{"var X = 1"},
+		TheirsLines:    []string{"var X = 2"},
 		CanAutoResolve: true,
 	}
 
@@ -94,9 +94,9 @@ func TestEvaluateHistoryEscalation_MultiAuthor(t *testing.T) {
 	}
 
 	c := &conflict.ConflictBlock{
-		FilePath:  "shared.go",
-		OursLines: []string{"const Version = \"1.0\""},
-		TheirsLines: []string{"const Version = \"2.0\""},
+		FilePath:       "shared.go",
+		OursLines:      []string{"const Version = \"1.0\""},
+		TheirsLines:    []string{"const Version = \"2.0\""},
 		CanAutoResolve: false,
 	}
 

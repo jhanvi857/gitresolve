@@ -50,14 +50,14 @@ func PersistCoChanges(conn *sql.DB, changes []CoChange) error {
 			count = excluded.count,
 			strength = excluded.strength`)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return fmt.Errorf("PersistCoChanges: prepare: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, cc := range changes {
 		if _, err := stmt.Exec(cc.FileA, cc.FileB, cc.Count, cc.Strength); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("PersistCoChanges: exec: %w", err)
 		}
 	}
@@ -79,7 +79,7 @@ func PersistAuthors(conn *sql.DB, authors map[string][]AuthorContribution) error
 			weight = excluded.weight,
 			last_touched = excluded.last_touched`)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return fmt.Errorf("PersistAuthors: prepare: %w", err)
 	}
 	defer stmt.Close()
@@ -87,7 +87,7 @@ func PersistAuthors(conn *sql.DB, authors map[string][]AuthorContribution) error
 	for file, contribs := range authors {
 		for _, c := range contribs {
 			if _, err := stmt.Exec(file, c.Email, c.Weight, c.LastTouched); err != nil {
-				tx.Rollback()
+				_ = tx.Rollback()
 				return fmt.Errorf("PersistAuthors: exec: %w", err)
 			}
 		}

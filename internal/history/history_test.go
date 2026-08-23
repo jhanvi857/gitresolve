@@ -183,10 +183,10 @@ func TestCoupledFilesMissing(t *testing.T) {
 
 func TestTarjanCycleDetection(t *testing.T) {
 	tests := []struct {
-		name     string
-		graph    map[string][]string
-		wantLen  int
-		wantCyc  []string // sorted members of expected cycle (or nil)
+		name    string
+		graph   map[string][]string
+		wantLen int
+		wantCyc []string // sorted members of expected cycle (or nil)
 	}{
 		{
 			name: "simple cycle A→B→C→A",
@@ -356,4 +356,3 @@ func TestCallersOfSymbol(t *testing.T) {
 		t.Errorf("unexpected callers: %v", callers)
 	}
 }
-

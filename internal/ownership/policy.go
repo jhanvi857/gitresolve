@@ -262,4 +262,3 @@ func warnUnknownPolicyKeys(root *os.Root, configPath string) {
 		}
 	}
 }
-

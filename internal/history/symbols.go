@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	funcDefRegex = regexp.MustCompile(`(?:func|def|function)\s+([A-Za-z0-9_]+)`)
+	funcDefRegex  = regexp.MustCompile(`(?:func|def|function)\s+([A-Za-z0-9_]+)`)
 	methodGoRegex = regexp.MustCompile(`func\s*\([^)]+\)\s*([A-Za-z0-9_]+)`)
 )
 
@@ -66,7 +66,7 @@ func (idx *Index) indexGoSymbols(absPath, relPath string) {
 
 // indexGenericSymbols provides basic call extraction for non-Go source files.
 func (idx *Index) indexGenericSymbols(absPath, relPath string) {
-	data, err := os.ReadFile(absPath)
+	data, err := os.ReadFile(filepath.Clean(absPath))
 	if err != nil {
 		return
 	}
