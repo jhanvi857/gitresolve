@@ -1,135 +1,189 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import { Terminal, Shield, Cpu, Activity, Zap, ChevronRight, GitMerge } from "lucide-react";
+import TerminalWindow from "@/components/TerminalWindow";
+import Footer from "@/components/Footer";
+
+const FeatureCard = ({ title, description, icon: Icon, index }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ delay: index * 0.1, duration: 0.5 }}
+    className="p-8 rounded-xl hover-card bg-black group"
+  >
+    <div className="w-10 h-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center mb-6 group-hover:border-blue-500/50 transition-colors">
+      <Icon className="w-5 h-5 text-white group-hover:text-blue-500 transition-colors" />
+    </div>
+    <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{title}</h3>
+    <p className="text-brand-secondary text-[15px] leading-relaxed">
+      {description}
+    </p>
+  </motion.div>
+);
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen bg-black text-[#ededed] font-sans">
-      <nav className="bg-black/80 sticky top-0 z-50 backdrop-blur-md">
-        <div className="w-full max-w-[90rem] mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="font-semibold tracking-tight text-white flex items-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon><line x1="12" y1="22" x2="12" y2="15.5"></line><polyline points="22 8.5 12 15.5 2 8.5"></polyline><polyline points="2 15.5 12 8.5 22 15.5"></polyline><line x1="12" y1="2" x2="12" y2="8.5"></line></svg>
-            gitresolve
+    <div className="flex flex-col min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans">
+      {/* Grid Background */}
+      <div className="fixed inset-0 grid-bg opacity-10 pointer-events-none z-0" />
+
+      {/* Radial Gradient Overlay */}
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(0,112,243,0.05),transparent_70%)] pointer-events-none z-0" />
+
+      <nav className="sticky top-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-8 h-8 rounded-lg bg-black border border-white/10 group-hover:border-blue-500 transition-all flex items-center justify-center">
+              <GitMerge className="w-4 h-4 text-blue-400" />
+            </div>
+            <span className="font-extrabold tracking-tighter text-xl">gitresolve</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-10 text-[14px] font-bold text-[#555]">
+            <Link href="/docs/installation" className="hover:text-white transition-colors">Docs</Link>
+            <Link href="/docs/history-escalation" className="hover:text-white transition-colors flex items-center gap-1.5">
+              <span>History Escalation</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300">NEW</span>
+            </Link>
+            <Link href="/docs/architecture" className="hover:text-white transition-colors">Architecture</Link>
+            <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">GitHub</a>
           </div>
-          <div className="flex items-center gap-6 text-[14px] text-[#888] font-medium">
-            <Link href="/docs/installation" className="hover:text-white transition">Documentation</Link>
-            <a href="https://github.com/jhanvi857/gitresolve" className="hover:text-white transition">GitHub</a>
-            <a href="#features" className="hover:text-white transition">Features</a>
-          </div>
+          <Link href="/docs/installation" className="bg-white text-black px-6 py-2 rounded-lg text-[14px] font-bold hover:bg-[#e1e1e1] transition-all">
+            Read Docs
+          </Link>
         </div>
       </nav>
 
-      <main className="flex-1 w-full flex flex-col items-center">
+      <main className="relative z-10">
         {/* Hero Section */}
-        <section className="w-full max-w-5xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111] text-[#888] text-[13px] font-medium mb-8 transition hover:bg-[#222]">
-            <span>v1.0.0 Production Release</span>
-            <span className="w-4 h-4 rounded-full bg-[#333] flex items-center justify-center text-[10px] text-white overflow-hidden">→</span>
-          </div>
-          
-          <h1 className="text-[56px] sm:text-[72px] font-bold tracking-tighter text-white leading-tight mb-8">
-            Deterministic Conflict Resolution
-          </h1>
-          
-          <p className="max-w-[42rem] text-[20px] text-[#888] mb-12 leading-normal">
-            A purely offline, highly deterministic Git conflict resolution engine scaling standard 20-year-old algorithms into modern Abstract Syntax Tree (AST) structural analysis. Built without LLMs.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link href="/docs/installation" className="bg-white hover:bg-[#ededed] text-black font-semibold px-6 py-3 rounded-md transition text-base">
-              Read Documentation
-            </Link>
-            <a href="#features" className="bg-[#111] hover:bg-[#222] text-white font-semibold px-6 py-3 rounded-md transition text-base">
-              Explore Architecture
-            </a>
-          </div>
-        </section>
-
-        {/* Feature Grid / Core Infrastructure */}
-        <section id="features" className="w-full bg-[#050505]">
-          <div className="max-w-6xl mx-auto px-6 py-24">
-            <div className="mb-16">
-              <h2 className="text-3xl font-bold tracking-tight text-white mb-4">Core Infrastructure</h2>
-              <p className="text-[16px] text-[#888] max-w-2xl">
-                Git solves diff algorithms through visual line-breaking. gitresolve scales natively into the codebase structure, fixing whitespace, syntax logic, and imports implicitly without altering semantic behavior or breaking.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="pt-24 md:pt-32 pb-20 px-8">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-left"
+            >
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-[#111] border border-white/5 mb-8">
+                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(0,112,243,0.8)]" />
+                <span className="text-[12px] font-bold text-[#888] tracking-wide">
+                  Deterministic Conflict Resolution <span className="mx-2 text-[#333]">|</span> v1.4.0 Stable
+                </span>
+              </div>
               
-              <div className="p-8 rounded-xl bg-[#111] transition duration-300">
-                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">Zero Large Language Models</h3>
-                <p className="text-[#888] text-[15px] leading-relaxed">
-                  Resolving internal code disputes via generative LLM APIs acts as a major enterprise leak. Our algorithm calculates AST mismatches entirely locally without probabilistic networks hallucinating over code.
-                </p>
+              <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-8 leading-[1.1]">
+                GitResolve: A Precision <br />
+                <span className="text-white opacity-90">Conflict Engine.</span>
+              </h1>
+              
+              <p className="text-brand-secondary text-lg md:text-xl max-w-xl mb-10 leading-relaxed font-medium">
+                GitResolve is a privacy-first, purely offline engine using AST structural analysis to solve Git conflicts with mathematical precision and zero data leakage.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <Link href="/docs/installation" className="w-full sm:w-auto bg-white text-black px-8 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all text-[15px] text-center">
+                  Read Architecture Docs
+                </Link>
+                <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="w-full sm:w-auto bg-black text-white px-8 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-[#111] transition-all flex items-center justify-center gap-3 text-[15px]">
+                  View Source Code
+                </a>
               </div>
+            </motion.div>
 
-              <div className="p-8 rounded-xl bg-[#111] transition duration-300">
-                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">POSIX Atomic Native Writes</h3>
-                <p className="text-[#888] text-[15px] leading-relaxed">
-                  We leverage <code className="bg-[#222] px-1 py-0.5 rounded text-[#ededed]">writeAtomic()</code> mappings to parse resolved buffers straight natively into `.tmp` disks before flushing via strict `os.Rename`. Safe from OS crashes or panics.
-                </p>
-              </div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative"
+            >
+              <TerminalWindow title="gitresolve_server – bash">
+                <div className="space-y-1 font-mono text-[13px] leading-relaxed">
+                  <div className="flex gap-3 mb-4">
+                    <span className="text-green-500 font-bold">$</span>
+                    <span className="text-white">gitresolve install -g @jhanvi857/gitresolve</span>
+                  </div>
+                  <div className="text-[#888]">[INFO] gitresolve: Linked global binary successfully.</div>
+                  <div className="flex gap-3 mt-4">
+                    <span className="text-green-500 font-bold">$</span>
+                    <span className="text-white">gitresolve resolve</span>
+                  </div>
+                  <div className="text-[#888] mt-2">[INFO] Watcher: Monitoring internal/auth/login.go...</div>
+                  <div className="text-[#888]">[INFO] Bootstrap: Starting GitResolve v1.4.0</div>
+                  <div className="text-blue-500">[READY] Conflict analysis live with AST validation.</div>
+                  
+                  <div className="flex gap-3 mt-6">
+                    <span className="text-green-500 font-bold">$</span>
+                    <span className="text-white">gitresolve status --json</span>
+                  </div>
+                  <div className="text-[#888]">{`{ "conflicts": 0, "confidence_score": 99.8 }`}</div>
+                </div>
+              </TerminalWindow>
+            </motion.div>
+          </div>
+        </section>
 
-              <div className="p-8 rounded-xl bg-[#111] transition duration-300">
-                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">Structured File Syncing</h3>
-                <p className="text-[#888] text-[15px] leading-relaxed">
-                  When developers concurrently map non-overlapping JSON objects or modify top-level arrays, gitresolve implicitly deduplicates structural imports automatically.
-                </p>
-              </div>
-
+        {/* Features Grid */}
+        <section className="py-20 px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-16">
+              <h2 className="text-3xl font-extrabold tracking-tight mb-4">Built for scale.</h2>
+              <p className="text-brand-secondary text-lg font-medium">Every feature designed for production reliability.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <FeatureCard
+                index={0}
+                title="AST Classification"
+                icon={Cpu}
+                description="Go-tree-sitter integration maps conflicts to syntax trees. Detect function signature changes, not just text diffs."
+              />
+              <FeatureCard
+                index={1}
+                title="History-Aware Risk"
+                icon={Activity}
+                description="Deterministic structural risk scoring. Mines Git history for blast radius, missing coupled files, and stale divergence."
+              />
+              <FeatureCard
+                index={2}
+                title="CWE-22 Hardened"
+                icon={Shield}
+                description="Mandatory os.Root sandboxing. Every file operation is cryptographically verified within repository boundaries."
+              />
+              <FeatureCard
+                index={3}
+                title="Deep Merging"
+                icon={Terminal}
+                description="Recursive map merges for JSON, YAML, and TOML. Handle complex configuration conflicts with native parsers."
+              />
             </div>
           </div>
         </section>
 
-        {/* Engine Code Demo section */}
-        <section className="w-full bg-[#000]">
-          <div className="max-w-6xl mx-auto px-6 py-32 flex flex-col lg:flex-row items-center gap-16">
-            <div className="lg:w-1/2">
-              <h2 className="text-4xl font-bold tracking-tight text-white mb-6">Engine Bootup <br/> In Native Speed.</h2>
-              <p className="text-[16px] text-[#888] leading-relaxed mb-6">
-                Compile locally directly from source using standard go toolchains. The executable connects securely to your `.git/` tracking endpoints.
-              </p>
-              <div className="text-[14px] flex flex-col gap-3 font-mono text-[#a1a1aa] pl-4">
-                <div><span>1.</span> <span className="text-white">gitresolve scan</span> — predict conflicts</div>
-                <div><span>2.</span> <span className="text-white">gitresolve merge</span> — resolve deterministically</div>
-                <div><span>3.</span> <span className="text-white">gitresolve undo</span> — rollback SQLite snapshot</div>
-              </div>
-            </div>
-            
-            <div className="lg:w-1/2 w-full">
-              <div className="w-full rounded-xl bg-[#111] shadow-2xl overflow-hidden">
-                <div className="bg-[#222] px-4 py-3 flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#333]"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#333]"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#333]"></div>
-                </div>
-                <div className="p-6 font-mono text-[13px] leading-extralight text-[#888]">
-                  <div><span className="text-[#888]">$</span> <span className="text-white">gitresolve merge --dry-run</span></div>
-                  <div className="mt-4">Engine Bootup: Initializing inside directory '.'</div>
-                  <div>Scanning index. Found 2 unmerged conflicts...</div>
-                  
-                  <div className="mt-4">--- Processing pkg/auth/login.go ---</div>
-                  <div className="text-[#ededed] bg-[#222] px-2 py-1 inline-block mt-1 rounded">! Escalated Severity 9 [Type: Logic]</div>
-                  
-                  <div className="mt-4">--- Processing web/config.yaml ---</div>
-                  <div className="text-white">✓ Auto-resolved 100% conflicts securely.</div>
-                  
-                  <div className="mt-6 text-[#666]">1 conflict resolved atomically. 1 requires manual intervention.</div>
-                </div>
-              </div>
+        {/* CTA Section */}
+        <section className="py-32 px-8 border-t border-white/5">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-8">
+              Ready to automate?
+            </h2>
+            <p className="text-brand-secondary text-lg md:text-xl mb-12 font-medium">
+              Join teams resolving conflicts with mathematical certainty. <br className="hidden md:block" />
+              Purely offline. Completely deterministic.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/docs/installation" className="w-full sm:w-auto bg-white text-black px-10 py-3.5 rounded-lg font-bold hover:bg-[#e1e1e1] transition-all">
+                Read Documentation
+              </Link>
+              <a href="https://github.com/jhanvi857/gitresolve" target="_blank" rel="noreferrer" className="w-full sm:w-auto px-10 py-3.5 rounded-lg font-bold border border-white/10 hover:bg-white/5 transition-all">
+                Star on GitHub
+              </a>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-[#050505] py-12">
-        <div className="max-w-[90rem] mx-auto px-6 text-[14px] text-[#666] flex justify-between">
-          <p>© 2026 gitresolve. Built purely offline.</p>
-          <div className="flex gap-4">
-            <Link href="/docs/installation" className="hover:text-white transition">Documentation</Link>
-            <a href="https://github.com/jhanvi857/gitresolve" className="hover:text-white transition">GitHub</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

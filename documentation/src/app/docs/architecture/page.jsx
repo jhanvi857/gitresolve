@@ -1,85 +1,132 @@
+"use client";
+
+import React from 'react';
+import DocsShell from '@/components/DocsShell';
+import ArchitectureDiagram from '@/components/ArchitectureDiagram';
+import { Cpu, Shield, Activity, Zap } from 'lucide-react';
+
 export default function Architecture() {
   return (
-    <div className="space-y-10">
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold text-[#ededed] tracking-tight">System Architecture</h1>
-        <p className="text-[16px] text-[#888]">
-          Scaling classic Git workflows computationally via strict AST modeling and transactional isolation domains.
-        </p>
-      </div>
+    <DocsShell
+      title="Architecture"
+      subtitle="How gitresolve handles conflicts with mathematical precision and local determinism."
+    >
+      <div className="space-y-16">
+        <section>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Core Principles</h2>
+            <p className="text-[#a1a1aa] leading-relaxed text-[17px] font-medium max-w-3xl">
+              gitresolve is built on the principle of <strong>Local Determinism</strong>. Every resolution is produced by a fixed pipeline of rule-based engines that require zero network access and provide bit-identical results for the same input.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FeatureCard 
+               title="AST Integration" 
+               icon={Cpu}
+               desc="Instead of line diffs, we see syntax trees. This allows safe merging of unordered blocks like Go imports or Java annotations."
+            />
+            <FeatureCard 
+               title="Rooted IO Sandbox" 
+               icon={Shield}
+               desc="Mandatory os.Root sandboxing for all file operations (CWE-22 mitigation). IO is mathematically restricted to the repository root."
+            />
+            <FeatureCard 
+               title="Pre-write Validation" 
+               icon={Activity}
+               desc="No resolution is written to disk unless it passes the language parser. Syntax errors trigger immediate manual escalation."
+            />
+            <FeatureCard 
+               title="Audit Persistence" 
+               icon={Zap}
+               desc="Every decision is recorded in a namespaced log, making it possible to query 'why' every resolution occurred months later."
+            />
+          </div>
+        </section>
 
-      <div className="space-y-6">
-        <div className="rounded-xl bg-[#000] p-8 my-10">
-          <div className="flex flex-col gap-6 font-mono text-[13px] items-center text-[#ededed]">
-            <div className="w-full flex justify-center text-white pb-4 font-bold">
-              [ CLI COMMAND: gitresolve merge ]
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-               <div className="bg-[#111] px-4 py-2 rounded">.git/ objects</div>
-               <span className="text-[#666] hidden sm:block">→</span>
-               <div className="text-[#666] sm:hidden">↓</div>
-               <div className="bg-[#111] text-[#ededed] px-4 py-2 rounded">Extract Blobs</div>
-               <span className="text-[#666] hidden sm:block">→</span>
-               <div className="text-[#666] sm:hidden">↓</div>
-               <div className="bg-[#111] px-4 py-2 rounded">Conflict Parser</div>
-            </div>
-
-            <div className="text-[#666]">↓</div>
-
-            <div className="flex flex-col sm:flex-row gap-4 items-center text-center">
-               <div className="bg-[#111] text-[#ededed] px-4 py-2 rounded">Tree-Sitter AST Analysis</div>
-               <span className="text-[#666] hidden sm:block">→</span>
-               <div className="text-[#666] sm:hidden">↓</div>
-               <div className="bg-[#111] px-4 py-2 rounded flex flex-col gap-1 text-[11px] text-left text-[#888]">
-                 <span className="text-[#ededed]">Sev: 1 - Format/Space</span>
-                 <span className="text-[#ededed]">Sev: 3 - JSON Config</span>
-                 <span className="text-[#ededed]">Sev: 9 - Auth Logic</span>
-               </div>
-            </div>
-
-            <div className="text-[#666]">↓</div>
-
-            <div className="flex gap-8 items-center text-center mt-4">
-               <div className="flex flex-col gap-2">
-                 <div className="text-[#ededed] font-bold text-[11px] uppercase tracking-wider">Deterministic</div>
-                 <div className="bg-[#111] px-4 py-2 rounded">Atomic Disk Write</div>
-               </div>
-               
-               <div className="flex flex-col gap-2">
-                 <div className="text-[#888] font-bold text-[11px] uppercase tracking-wider">Blocked</div>
-                 <div className="bg-[#111] px-4 py-2 rounded">Manual Escalation</div>
-               </div>
+        <section>
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">The Resolution Pipeline</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">A five-stage sequential processing engine.</p>
+          </div>
+          <div className="relative">
+            <div className="absolute left-5 top-0 bottom-0 w-px bg-gradient-to-b from-blue-500/50 via-white/[0.05] to-transparent" />
+            <div className="space-y-4">
+              <PipeStep 
+                num="01" 
+                title="Symmetric Marker Identification" 
+                desc="Scanning for conflict markers with active brace-balance recovery. If markers are malformed or nested improperly, we escalate immediately." 
+                active
+              />
+              <PipeStep 
+                num="02" 
+                title="Heuristic Classification" 
+                desc="The engine categorizes the block: TypeIdentical, TypeWhitespace, TypeImport, TypeStructured, or TypeScalar." 
+              />
+              <PipeStep 
+                num="03" 
+                title="Policy-Injected Routing" 
+                desc="Active Policy Profiles (strict/aggressive) modify the confidence threshold required to proceed with automation." 
+              />
+              <PipeStep 
+                num="04" 
+                title="Semantic Strategy Execution" 
+                desc="Running the actual merge logic. For structured files, this is a deep recursive map merge. For code, it's an AST transformation." 
+              />
+              <PipeStep 
+                num="05" 
+                title="Post-Resolution Syntax Gate" 
+                desc="The final check. We run the native language compiler/parser on the 'merged' result. If valid, we write. If invalid, we roll back." 
+              />
             </div>
           </div>
-        </div>
+        </section>
+
+        <section>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Engine Deep Dive</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">Visual breakdown of the deterministic resolution and history escalation engine.</p>
+          </div>
+          <ArchitectureDiagram />
+          <p className="mt-6 text-[11px] text-[#555] font-bold uppercase tracking-[0.2em] text-center font-mono">
+            Working Tree → Pre-Flight Divergence → AST Index → History Risk Scoring → Policy & Syntax Gates → Outcome
+          </p>
+        </section>
+
+        <section className="pb-16">
+          <div className="p-8 rounded-2xl bg-blue-500/5 border border-blue-500/10 relative overflow-hidden group hover-card">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full -mr-48 -mt-48 transition-opacity duration-500 group-hover:opacity-100 opacity-50" />
+            <h3 className="text-xl font-bold text-white mb-4 relative z-10">Structured Data Engine</h3>
+            <p className="text-[#a1a1aa] leading-relaxed relative z-10 text-[17px] font-medium max-w-4xl">
+              For JSON, YAML, and TOML, gitresolve bypasses line-based text merging entirely. It parses both sides into memory, performs a 3-way recursive object merge including <strong>conservative array unioning</strong>, and re-serializes the result. This prevents common errors where merging two objects results in an invalid JSON comma or duplicated keys.
+            </p>
+          </div>
+        </section>
       </div>
+    </DocsShell>
+  );
+}
 
-      <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-white pb-2">AST Analysis (Not Text Checking)</h2>
-        <p className="text-[#888] text-[15px] leading-relaxed">
-          Traditional Git engines like Myers-diff parse visual edit distancing, causing terrifying semantic logic fractures. 
-          The <span className="text-white font-medium">gitresolve</span> engine bypasses visual distances natively.
-        </p>
+function FeatureCard({ title, desc, icon: Icon }) {
+  return (
+    <div className="p-6 rounded-xl bg-black border border-white/[0.05] hover-card group">
+      <div className="w-10 h-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center mb-6 group-hover:border-blue-500/50 transition-colors shadow-lg">
+        <Icon className="w-5 h-5 text-white group-hover:text-blue-500 transition-colors" />
+      </div>
+      <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{title}</h3>
+      <p className="text-[14px] text-[#a1a1aa] font-medium leading-relaxed">{desc}</p>
+    </div>
+  );
+}
 
-        <div className="bg-[#0a0a0a] p-5 rounded-xl font-mono text-[13px] overflow-x-auto">
-          <pre className="text-[#888]">
-{`// internal/conflict/classifier.go
-
-func Classify(c *Conflict) {
-  // Automatically solves spaces mathematically
-  if isWhitespaceOnly(c.OurLines, c.TheirLines) {
-      c.Type = TypeWhitespace
-      c.CanAutoResolve = true
-  }
-
-  // Defends critical pathways aggressively 
-  if isSensitivePath(c.FilePath) { // "auth/**", "payments/**"
-      c.Severity = SeverityCritical
-      c.CanAutoResolve = false
-  }
-}`}
-          </pre>
+function PipeStep({ num, title, desc, active }) {
+  return (
+    <div className={`p-6 rounded-xl border ml-10 transition-all duration-300 relative ${active ? 'bg-blue-500/5 border-blue-500/20' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/[0.05]'}`}>
+      <div className={`absolute -left-[2.75rem] top-7 w-3 h-3 rounded-full border-2 transition-all duration-300 ${active ? 'bg-blue-500 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]' : 'bg-black border-white/[0.1]'}`} />
+      <div className="flex gap-6">
+        <span className={`font-mono text-xs font-extrabold mt-1 tracking-tighter ${active ? 'text-blue-500' : 'text-[#333]'}`}>{num}</span>
+        <div>
+          <h4 className={`text-lg font-bold mb-2 ${active ? 'text-white' : 'text-[#a1a1aa]'}`}>{title}</h4>
+          <p className="text-[15px] text-[#a1a1aa] font-medium leading-relaxed max-w-3xl">{desc}</p>
         </div>
       </div>
     </div>

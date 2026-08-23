@@ -1,48 +1,89 @@
+"use client";
+
+import React from 'react';
+import DocsShell from '@/components/DocsShell';
+import { ShieldCheck, Lock, FileCode, CheckCircle2, AlertOctagon } from 'lucide-react';
+
 export default function Security() {
   return (
-    <div className="space-y-10">
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Security & Privacy Standard</h1>
-        <p className="text-[16px] text-[#888]">
-          The ultimate defense infrastructure built directly for internal enterprise engineering environments.
-        </p>
-      </div>
+    <DocsShell 
+      title="Security & Privacy Standards" 
+      subtitle="Architectural security guarantees built specifically for enterprise repositories."
+    >
+      <div className="space-y-16">
+        {/* Zero LLM Guarantee Banner */}
+        <section>
+          <div className="p-8 rounded-2xl bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border border-blue-500/20 relative overflow-hidden group hover-card">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-white tracking-tight">Zero-LLM, Deterministic Guarantee</h2>
+                <p className="text-[#a1a1aa] leading-relaxed text-[16px] font-medium">
+                  <code>gitresolve</code> strictly does <strong className="text-white">NOT</strong> use Large Language Models (LLMs), probabilistic neural networks, or external AI APIs. Conflict resolution is performed entirely locally through Abstract Syntax Tree (AST) grammar checks, deterministic type unification, and formal policy rules.
+                </p>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    100% Offline
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Zero Data Leakage
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    Bit-Identical Reproducibility
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      {/* No LLM Banner */}
-      <div className="p-8 rounded-xl my-8">
-        <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2 tracking-tight">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.642 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.358-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd"></path></svg>
-          Zero LLM Integrations
-        </h2>
-        <p className="text-[#a1a1aa] leading-relaxed text-[15px]">
-          <strong className="text-white font-medium">gitresolve strictly does not use LLMs (Large Language Models) or probabilistic AI networks to resolve your source code.</strong> 
-          Generating intelligent code resolution natively requires zero interaction with external generative APIs.<br /><br />
-          Sending proprietary intellectual property to clouded APIs is a massive compliance vulnerability. Code hallucinates. 
-          Compliance breaks. Security teams aggressively reject it.<br /><br />
-          Instead, gitresolve applies strict, verifiable mathematical trees to parse conflicts locally. <strong className="text-white font-medium">100% Privacy. 100% Accuracy. 0 API Calls.</strong>
-        </p>
-      </div>
-
-      <div className="space-y-8">
-        <div className="space-y-4">
-          <h3 className="text-[18px] font-semibold text-white pb-2 tracking-tight">POSIX Atomic Disk Defense</h3>
-          <p className="text-[#888] text-[15px]">Writing directly to file handles during automated merges corrupts states if processes hang or crash natively.</p>
-          <div className="flex gap-4">
-            <div className="w-1 bg-[#fff] rounded"></div>
-            <p className="text-[#ededed] bg-[#111] px-4 py-3 rounded-md font-mono text-[13px]">
-               func writeAtomic() → fsync() → os.Rename()
+        {/* Security Pillars */}
+        <section>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4 tracking-tight">Enterprise Hardening Mechanisms</h2>
+            <p className="text-[#a1a1aa] text-[16px] font-medium">
+              Every operation follows defence-in-depth isolation principles.
             </p>
           </div>
-          <p className="text-[14px] text-[#666]">Every file successfully auto-resolved is initially written to a <code className="text-[#ededed] bg-[#111] px-1 py-0.5 rounded">.gitresolve-tmp</code> chunk before atomic system renames perfectly swap pointers. Power loss? No data loss.</p>
-        </div>
 
-        <div className="space-y-4">
-          <h3 className="text-[18px] font-semibold text-white pb-2 tracking-tight">Replay Snapshots (Undo State)</h3>
-          <p className="text-[#888] text-[15px] leading-relaxed">
-            Every distinctive gitresolve command executes a snapshot signature to a localized tracking layer. Executing <span className="font-mono text-[#ededed] bg-[#111] px-1.5 py-0.5 rounded text-[13px]">gitresolve undo</span> forces a rigorous rollback protocol using the original <code className="text-[#ededed] bg-[#111] px-1.5 py-0.5 rounded">.gitresolve-orig</code> file backups to perfectly restore original unmerged file pointers flawlessly.
-          </p>
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SecurityCard 
+              icon={Lock}
+              title="CWE-22 Rooted Path Sandboxing"
+              desc="Mandatory os.Root directory confinement guarantees that all file reading and resolution writes are mathematically restricted within the repository boundaries, preventing path traversal exploits (CVE / CWE-22 mitigation)."
+            />
+            <SecurityCard 
+              icon={FileCode}
+              title="POSIX Atomic File Writes"
+              desc="All auto-resolutions are written first to isolated temporary staging buffers and flushed with fsync() before an atomic os.Rename(). A sudden system crash or kernel panic will never leave files half-written or corrupted."
+            />
+            <SecurityCard 
+              icon={CheckCircle2}
+              title="Post-Write Syntax Verification Gate"
+              desc="No auto-resolved code file is ever finalized on disk unless it passes native language compiler AST verification (Go syntax, JSON/YAML parser). If syntax fails, changes roll back immediately to manual review."
+            />
+            <SecurityCard 
+              icon={AlertOctagon}
+              title="Immutable SQLite Audit Ledger"
+              desc="Every decision made by the engine is recorded with timestamp, commit hashes, matched rules, and confidence metrics in .gitresolve/audit.db in WAL mode for forensic auditability."
+            />
+          </div>
+        </section>
       </div>
+    </DocsShell>
+  );
+}
+
+function SecurityCard({ icon: Icon, title, desc }) {
+  return (
+    <div className="p-6 rounded-xl bg-black border border-white/[0.05] hover-card group">
+      <div className="w-10 h-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center mb-6 group-hover:border-blue-500/50 transition-colors shadow-lg">
+        <Icon className="w-5 h-5 text-white group-hover:text-blue-500 transition-colors" />
+      </div>
+      <h3 className="text-xl font-bold text-white mb-3 tracking-tight">{title}</h3>
+      <p className="text-[14px] text-[#a1a1aa] font-medium leading-relaxed">{desc}</p>
     </div>
   );
 }
