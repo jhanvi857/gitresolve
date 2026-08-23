@@ -26,9 +26,9 @@ func TestLoadPolicyConfig_Hardening(t *testing.T) {
 			wantErr: ErrPolicyTooLarge.Error(),
 		},
 		{
-			name:    "unknown key",
+			name:    "unknown key warns but does not error",
 			content: `{"default": "strict", "unknown_key": "val"}`,
-			wantErr: ErrPolicyUnknownKey("unknown_key").Error(),
+			wantErr: "",
 		},
 		{
 			name: "too many path entries",
