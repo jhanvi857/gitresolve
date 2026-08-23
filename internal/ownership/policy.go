@@ -7,6 +7,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/jhanvi857/gitresolve/pkg/logger"
 )
 
 const (
@@ -34,6 +36,11 @@ type PolicyConfig struct {
 	PathProfiles   map[string]string `json:"path_profiles"`
 	TeamProfiles   map[string]string `json:"team_profiles"`
 	SortedPathKeys []string          `json:"-"`
+	// History-aware escalation thresholds (overridable in policy.json)
+	MaxDivergenceCommits int     `json:"max_divergence_commits,omitempty"`
+	MaxCallers           int     `json:"max_callers,omitempty"`
+	CoChangeMinStrength  float64 `json:"co_change_min_strength,omitempty"`
+	HistoryMaxCommits    int     `json:"history_max_commits,omitempty"`
 }
 
 type PolicyResolution struct {
@@ -93,16 +100,17 @@ func LoadPolicyConfig(root *os.Root) (*PolicyConfig, error) {
 
 	var cfg PolicyConfig
 	dec := json.NewDecoder(f)
-	dec.DisallowUnknownFields()
+	// Note: we intentionally do NOT call dec.DisallowUnknownFields() here.
+	// This allows forward-compatible config extension — newer versions of
+	// gitresolve can add fields without breaking older binaries. To catch
+	// typos we log warnings for unrecognized keys below.
 	if err := dec.Decode(&cfg); err != nil {
-		if strings.Contains(err.Error(), "unknown field") {
-			parts := strings.Split(err.Error(), "\"")
-			if len(parts) >= 2 {
-				return nil, ErrPolicyUnknownKey(parts[1])
-			}
-		}
 		return nil, fmt.Errorf("LoadPolicyConfig: parsing policy.json: %w", err)
 	}
+
+	// Warn about unrecognized top-level keys (typo protection without
+	// hard-failing). Re-parse into a raw map to detect unknowns.
+	warnUnknownPolicyKeys(root, configPath)
 
 	if cfg.DefaultProfile != "" && !IsValidPolicyProfile(cfg.DefaultProfile) {
 		return nil, ErrPolicyInvalidProfile(cfg.DefaultProfile)
@@ -130,6 +138,20 @@ func LoadPolicyConfig(root *os.Root) (*PolicyConfig, error) {
 			return nil, ErrPolicyInvalidProfile(v)
 		}
 		cfg.TeamProfiles[k] = normalizePolicyProfile(v)
+	}
+
+	// Apply defaults for history-aware escalation thresholds
+	if cfg.MaxDivergenceCommits <= 0 {
+		cfg.MaxDivergenceCommits = 10
+	}
+	if cfg.MaxCallers <= 0 {
+		cfg.MaxCallers = 10
+	}
+	if cfg.CoChangeMinStrength <= 0 {
+		cfg.CoChangeMinStrength = 0.6
+	}
+	if cfg.HistoryMaxCommits <= 0 {
+		cfg.HistoryMaxCommits = 500
 	}
 
 	return &cfg, nil
@@ -205,4 +227,38 @@ func ResolvePolicy(root *os.Root, filePath, explicitProfile string) (*PolicyReso
 		ResolvedProfile:  cfg.DefaultProfile,
 		Source:           "default",
 	}, nil
+}
+
+// knownPolicyKeys lists every recognized top-level key in policy.json.
+// Used for typo detection after removing DisallowUnknownFields.
+var knownPolicyKeys = map[string]struct{}{
+	"default":                {},
+	"path_profiles":          {},
+	"team_profiles":          {},
+	"max_divergence_commits": {},
+	"max_callers":            {},
+	"co_change_min_strength": {},
+	"history_max_commits":    {},
+}
+
+// warnUnknownPolicyKeys re-reads policy.json into a raw map and logs a
+// warning for any top-level key not in knownPolicyKeys. This catches
+// typos without hard-failing, preserving forward-compatible config extension.
+func warnUnknownPolicyKeys(root *os.Root, configPath string) {
+	f, err := root.Open(configPath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(f).Decode(&raw); err != nil {
+		return
+	}
+
+	for key := range raw {
+		if _, ok := knownPolicyKeys[key]; !ok {
+			logger.Warn().Str("key", key).Msg("unrecognized key in policy.json (possible typo)")
+		}
+	}
 }

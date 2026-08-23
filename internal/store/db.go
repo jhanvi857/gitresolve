@@ -87,6 +87,12 @@ func Open(dbPath string) (*DB, error) {
 	return db, nil
 }
 
+// Conn returns the underlying *sql.DB connection for shared use by other
+// packages (e.g. internal/history) that need to read/write additional tables
+// in the same database. This avoids opening a second connection and the
+// complications of dual WAL handles.
+func (db *DB) Conn() *sql.DB { return db.conn }
+
 func (db *DB) Close() error {
 	return db.conn.Close()
 }

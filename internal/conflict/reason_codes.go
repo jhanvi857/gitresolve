@@ -8,10 +8,15 @@ const (
 	ReasonParserMissingDivider        = "parser.missing_divider"
 	ReasonSemanticUnsupportedLanguage = "semantic.unsupported_language"
 	ReasonSemanticParseFailed         = "semantic.parse_failed"
+	ReasonSemanticHighBlastRadius     = "semantic.high_blast_radius"
+	ReasonSemanticMissingCoupledFile  = "semantic.missing_coupled_file"
+	ReasonSemanticImportCycle         = "semantic.import_cycle"
 	ReasonSafetyIncompleteStructure   = "safety.incomplete_structure"
 	ReasonStrategyBothBlockedRisk     = "strategy.both_blocked_high_risk"
 	ReasonStrategyTimeoutAutoTheirs   = "strategy.timeout_auto_theirs"
 	ReasonStrategyIdenticalBothSides  = "strategy.identical_both_sides"
+	ReasonStrategyStaleBranchDiv      = "strategy.stale_branch_divergence"
+	ReasonStrategyMultiAuthorConflict = "strategy.multi_author_conflict"
 	ReasonValidationSyntaxFailed      = "validation.syntax_failed"
 	ReasonStructuredAutoDisabled      = "structured.auto_disabled"
 	ReasonStructuredOverlap           = "structured.overlap"
@@ -29,10 +34,15 @@ var stableReasonCodeSet = map[string]struct{}{
 	ReasonParserMissingDivider:        {},
 	ReasonSemanticUnsupportedLanguage: {},
 	ReasonSemanticParseFailed:         {},
+	ReasonSemanticHighBlastRadius:     {},
+	ReasonSemanticMissingCoupledFile:  {},
+	ReasonSemanticImportCycle:         {},
 	ReasonSafetyIncompleteStructure:   {},
 	ReasonStrategyBothBlockedRisk:     {},
 	ReasonStrategyTimeoutAutoTheirs:   {},
 	ReasonStrategyIdenticalBothSides:  {},
+	ReasonStrategyStaleBranchDiv:      {},
+	ReasonStrategyMultiAuthorConflict: {},
 	ReasonValidationSyntaxFailed:      {},
 	ReasonStructuredAutoDisabled:      {},
 	ReasonStructuredOverlap:           {},

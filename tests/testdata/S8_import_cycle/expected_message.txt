@@ -1,0 +1,1 @@
+conflict block in pkg/auth/token.go sits inside an import cycle: pkg/auth → pkg/user → pkg/auth

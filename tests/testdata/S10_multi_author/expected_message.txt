@@ -1,0 +1,1 @@
+both sides of the conflict in internal/api/handler.go were authored by different people: alice@example.com vs bob@example.com
