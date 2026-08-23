@@ -141,9 +141,10 @@ Resolution risk posture is configurable per command, per path, and per team via 
 | `gitresolve blame` | Show resolution history for audits. |
 | `gitresolve blame --patterns` | Display conflict pattern frequency analysis. |
 | `gitresolve undo --steps <N>` | Reset the repository to a recorded snapshot SHA from a recent session. |
+| `gitresolve resolve --skip-sync-check` | Skip pre-resolve divergence check against remote default branch. |
 | `gitresolve resolve --max-file-bytes <bytes>` | Skip files larger than this limit (default 10MB). Set to -1 for unlimited. |
 | `gitresolve resolve --log-level <level>` | Set log level: error, warn, info, debug, trace (default: warn). |
-| `-v`, `--verbose` | Shorthand for `--log-level info`. |
+| `-v`, `--verbose` | Enable info logging and display full escalation evidence (AST diff, co-change/author facts, decision row). |
 
 ---
 
@@ -268,14 +269,21 @@ The resolution pipeline executes locally with no external API dependencies.
 ```mermaid
 flowchart TD
     Start[Trigger Resolve] --> Lock[Acquire Repository Lock]
-    Lock --> Identify[Identify Conflicted Files]
-    Identify --> Loop{For Each File}
+    Lock --> SyncCheck{Pre-resolve Divergence?}
+    SyncCheck -- Behind > Threshold --> Warn[Print Warning + Suggested Rebase/Merge]
+    SyncCheck -- In Sync --> Identify[Identify Conflicted Files]
+    Warn --> Identify
+    Identify --> HistIndex[Build In-Memory History Index]
+    HistIndex --> Loop{For Each File}
 
     Loop --> Parse[Parse Conflict Markers]
     Parse --> Recover[Symmetric Brace Recovery]
-    Recover --> Classify[AST and Heuristic Classification]
+    Recover --> Classify[AST and History-Aware Classification]
 
-    Classify --> Config{Config File?}
+    Classify --> HistRisk{History Risk?}
+    HistRisk -- Blast Radius / Coupled / Cycle --> Escalate[Escalate to Manual + Suggested Command]
+    HistRisk -- Low Risk --> Config{Config File?}
+
     Config -- Yes --> DeepMerge[Deep Map Merge]
     DeepMerge --> Validate
 
@@ -284,7 +292,7 @@ flowchart TD
     AutoResolve --> Validate
 
     Safe -- No --> Risk{High-risk Semantic?}
-    Risk -- Yes --> Escalate[Escalate to Manual + Log Reason Code]
+    Risk -- Yes --> Escalate
     Risk -- No --> Strategy[Apply Strategy via Policy Profile]
     Strategy --> Validate
 
@@ -292,12 +300,49 @@ flowchart TD
     Pass -- No --> Escalate
     Pass -- Yes --> Write[Atomic Write + Git Stage]
 
-    Write --> Log[Persist Decision to SQLite]
+    Write --> Log[Persist Decision + Escalation to SQLite]
     Escalate --> Log
     Log --> Next{More Files?}
     Next -- Yes --> Loop
     Next -- No --> Unlock[Release Lock]
     Unlock --> Done[Exit]
+```
+
+---
+
+## History-Aware Escalation Layer (Deterministic & Rule-Based)
+
+`gitresolve` includes a local, rule-based escalation layer that scores structural risk from the repository's own AST and Git history before performing any conflict resolution.
+
+### Why Rule-Based and Deterministic (No ML / No LLM)?
+
+- **Zero Hallucination Risk**: Explanations and command suggestions use fixed, parameterized Go templates filled exclusively with verified facts derived from local repository data. Sentences are never freely generated.
+- **Reproducible Decisions**: Given the same git history and conflict shape, `gitresolve` will always produce the exact same reason code, escalation message, and command recommendation.
+- **Zero Network & Dependency Overhead**: No external LLM APIs, vector stores, or graph databases. The entire history index builds in-memory in ~50ms per run.
+- **Auditable Telemetry**: All escalation messages and suggested commands are persisted directly into the existing SQLite decision log for post-hoc analysis and CI gating.
+
+### New Reason Codes & Escalation Rules
+
+| Reason Code | Trigger Condition | Template Message | Suggested Command |
+| :--- | :--- | :--- | :--- |
+| `semantic.high_blast_radius` | Modified symbol has > `max_callers` (default: 10) call-sites across repo | `{symbol} is called from {count} other locations — escalating for manual review` | `go test ./... (run full suite before committing)` |
+| `semantic.missing_coupled_file` | File frequently co-changed with `{coupled_file}` (strength >= `co_change_min_strength`, default: 0.6) was not touched in branch | `{file} is frequently changed alongside {coupled_file} (strength {strength}) but {coupled_file} was not touched in this branch` | `gitresolve status {coupled_file}` |
+| `semantic.import_cycle` | Conflict block sits inside a detected Go package import cycle | `conflict block in {file} sits inside an import cycle: {cycle}` | `review import dependencies and break the cycle` |
+| `strategy.stale_branch_divergence` | Current branch is > `max_divergence_commits` (default: 10) behind remote default branch | `branch is {behind} commits behind {branch} — {authors} authored changes touching files you also modified` | `git fetch && git rebase origin/{branch}` |
+| `strategy.multi_author_conflict` | Conflicted sides authored by different contributors (informational) | `both sides of the conflict in {file} were authored by different people: {author_ours} vs {author_theirs}` | `coordinate with {author_theirs} before resolving` |
+
+### Configurable Escalation Thresholds
+
+Configure history-aware risk thresholds in `.gitresolve/policy.json`:
+
+```json
+{
+  "default": "balanced",
+  "max_divergence_commits": 10,
+  "max_callers": 10,
+  "co_change_min_strength": 0.6,
+  "history_max_commits": 500
+}
 ```
 
 ---
