@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jhanvi857/gitresolve/internal/conflict"
 	"github.com/jhanvi857/gitresolve/internal/git"
+	"github.com/jhanvi857/gitresolve/internal/history"
 	"github.com/jhanvi857/gitresolve/internal/ownership"
 	"github.com/jhanvi857/gitresolve/internal/safepath"
 	"github.com/jhanvi857/gitresolve/internal/safety"
@@ -29,6 +31,7 @@ var resolveEnforceGates bool
 var resolveManualRateGate float64
 var resolvePolicyProfile string
 var resolveMaxFileBytes int64
+var resolveSkipSyncCheck bool
 
 var resolveCmd = &cobra.Command{
 	Use:   "resolve",
@@ -90,6 +93,82 @@ var resolveCmd = &cobra.Command{
 		db, dbErr := openStore(repoPath)
 		if dbErr == nil {
 			defer db.Close()
+		}
+
+		// Load policy config to get history and escalation thresholds
+		policyCfg, pErr := ownership.LoadPolicyConfig(root)
+		if pErr != nil {
+			logger.Warn().Err(pErr).Msg("failed to load policy config, using defaults")
+			policyCfg = &ownership.PolicyConfig{
+				DefaultProfile:       ownership.PolicyBalanced,
+				MaxDivergenceCommits: 10,
+				MaxCallers:           10,
+				CoChangeMinStrength:  0.6,
+				HistoryMaxCommits:    500,
+			}
+		}
+
+		// Build history index for escalation analysis
+		histIdx := history.NewIndex(policyCfg.HistoryMaxCommits)
+		var lastSHA string
+		if dbErr == nil {
+			lastSHA, _ = history.LoadSyncState(db.Conn())
+		}
+		if histErr := histIdx.BuildFromGitLog(".", lastSHA); histErr != nil {
+			logger.Debug().Err(histErr).Msg("building history index from git log")
+		}
+		goFiles, _ := history.ListGoFiles(".")
+		if len(goFiles) > 0 {
+			histIdx.BuildImportEdges(".", goFiles)
+			histIdx.BuildSymbolIndex(".", goFiles)
+		}
+		if dbErr == nil && !resolveDryRun && histIdx.NewHeadSHA() != "" {
+			_ = history.SaveSyncState(db.Conn(), histIdx.NewHeadSHA())
+			_ = history.PersistCoChanges(db.Conn(), histIdx.NormalizedCoChanges())
+			_ = history.PersistAuthors(db.Conn(), histIdx.FileAuthors)
+		}
+
+		// Pre-resolve divergence check
+		if !resolveSkipSyncCheck {
+			divResult, divErr := history.CheckDivergence(".", files, histIdx)
+			if divErr == nil && divResult.Behind > policyCfg.MaxDivergenceCommits {
+				var authorEmails []string
+				for _, a := range divResult.AuthorsOnBehindTouchingLocal {
+					authorEmails = append(authorEmails, a.Email)
+				}
+				authorsStr := strings.Join(authorEmails, ", ")
+				if authorsStr == "" {
+					authorsStr = "teammates"
+				}
+				divData := map[string]string{
+					"behind":  strconv.Itoa(divResult.Behind),
+					"branch":  divResult.DefaultBranch,
+					"authors": authorsStr,
+				}
+				divMsg := conflict.RenderEscalationMessage(conflict.ReasonStrategyStaleBranchDiv, divData)
+				divCmd := conflict.RenderSuggestedCommand(conflict.ReasonStrategyStaleBranchDiv, map[string]string{"branch": divResult.DefaultBranch})
+				if divResult.PullStrategy == "merge" {
+					divCmd = fmt.Sprintf("git fetch && git merge origin/%s", divResult.DefaultBranch)
+				}
+
+				fmt.Printf("Warning: %s\n  suggested: %s\n\n", divMsg, divCmd)
+				if dbErr == nil {
+					_ = db.SaveDecision(store.DecisionRecord{
+						RepoPath:          repoPath,
+						FilePath:          "",
+						Operation:         "resolve",
+						ConflictType:      "branch",
+						Severity:          "high",
+						Action:            "divergence-warning",
+						ReasonCode:        conflict.ReasonStrategyStaleBranchDiv,
+						Reason:            divMsg,
+						EscalationMessage: divMsg,
+						SuggestedCommand:  divCmd,
+						Confidence:        1.0,
+						Shadow:            resolveShadow,
+					})
+				}
+			}
 		}
 
 		if !resolveDryRun && dbErr == nil {
@@ -533,4 +612,54 @@ func init() {
 	resolveCmd.Flags().Float64Var(&resolveManualRateGate, "manual-rate-gate", 60, "maximum allowed manual escalation rate percentage when --enforce-gates is set")
 	resolveCmd.Flags().DurationVar(&resolveTimeout, "timeout", 0, "timeout for interactive prompt (e.g. 30s). Emits a warning and auto-selects theirs if reached.")
 	resolveCmd.Flags().Int64Var(&resolveMaxFileBytes, "max-file-bytes", conflict.DefaultMaxConflictFileBytes, "maximum conflict file size in bytes before manual escalation (-1 for unlimited)")
+	resolveCmd.Flags().BoolVar(&resolveSkipSyncCheck, "skip-sync-check", false, "skip pre-resolve divergence check against remote branch")
+}
+
+func evaluateHistoryEscalation(repoPath, file string, c *conflict.ConflictBlock, idx *history.Index, cfg *ownership.PolicyConfig, touchedFiles map[string]bool) {
+	if c == nil || idx == nil || cfg == nil {
+		return
+	}
+	idx.EvaluateBlock(repoPath, file, c, cfg.MaxCallers, cfg.CoChangeMinStrength, touchedFiles)
+}
+
+func printVerboseEvidence(file string, c *conflict.ConflictBlock, idx *history.Index) {
+	fmt.Println("  [verbose evidence]")
+	fmt.Println("    AST / Conflict block diff:")
+	fmt.Println("      --- ours ---")
+	for _, l := range c.OursLines {
+		fmt.Printf("      + %s\n", l)
+	}
+	fmt.Println("      --- theirs ---")
+	for _, l := range c.TheirsLines {
+		fmt.Printf("      - %s\n", l)
+	}
+	if idx != nil {
+		authors := idx.AuthorsForFile(file)
+		if len(authors) > 0 {
+			fmt.Println("    Historical author contributions:")
+			for _, a := range authors {
+				fmt.Printf("      * %s (weight: %.2f, last touched: %s)\n", a.Email, a.Weight, a.LastTouched.Format("2006-01-02"))
+			}
+		}
+		cochanges := idx.NormalizedCoChanges()
+		var fileCouplings []history.CoChange
+		for _, cc := range cochanges {
+			if cc.FileA == file || cc.FileB == file {
+				fileCouplings = append(fileCouplings, cc)
+			}
+		}
+		if len(fileCouplings) > 0 {
+			fmt.Println("    Historical file couplings:")
+			for _, cc := range fileCouplings {
+				other := cc.FileA
+				if other == file {
+					other = cc.FileB
+				}
+				fmt.Printf("      * %s (count: %d, strength: %.2f)\n", other, cc.Count, cc.Strength)
+			}
+		}
+	}
+	fmt.Println("    Decision log row:")
+	fmt.Printf("      reason_code: %s | confidence: %.2f | type: %s | severity: %s\n",
+		reasonCodeOrUnknown(c), c.Confidence, typeLabel(c.Type), severityLabel(c.Severity))
 }
