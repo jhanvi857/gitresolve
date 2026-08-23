@@ -83,6 +83,7 @@ func detectDefaultBranch(repoPath string) (string, error) {
 
 	// Fallback: check if main or master exists
 	for _, branch := range []string{"main", "master"} {
+		// #nosec G204 -- branch is restricted to fixed list "main" / "master"
 		cmd = exec.Command("git", "rev-parse", "--verify", "origin/"+branch)
 		cmd.Dir = repoPath
 		if err := cmd.Run(); err == nil {
@@ -95,6 +96,7 @@ func detectDefaultBranch(repoPath string) (string, error) {
 
 // revListCount returns ahead/behind counts relative to origin/<branch>.
 func revListCount(repoPath, branch string) (ahead, behind int, err error) {
+	// #nosec G204 -- branch is detected from git symbolic-ref or sanitized default branch
 	cmd := exec.Command("git", "rev-list", "--left-right", "--count",
 		fmt.Sprintf("HEAD...origin/%s", branch))
 	cmd.Dir = repoPath

@@ -113,9 +113,8 @@ func (idx *Index) processRecords(records []gitLogRecord) {
 	now := time.Now()
 	// Track per-file author stats for recency weighting
 	type authorStat struct {
-		linesChanged int
-		lastTouched  time.Time
-		commitCount  int
+		lastTouched time.Time
+		commitCount int
 	}
 	fileAuthorStats := make(map[string]map[string]*authorStat)
 

@@ -33,6 +33,7 @@ func BenchmarkHistoryIndex(b *testing.B) {
 // generateSyntheticLog creates a realistic synthetic git log.
 // Each commit touches 1–8 files drawn from a pool of numFiles files.
 func generateSyntheticLog(numCommits, numFiles int) []gitLogRecord {
+	// #nosec G404 -- deterministic pseudo-random seed used strictly for benchmarking
 	rng := rand.New(rand.NewSource(42))
 	files := make([]string, numFiles)
 	for i := 0; i < numFiles; i++ {
